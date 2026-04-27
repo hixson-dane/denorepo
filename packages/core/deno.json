@@ -5,6 +5,7 @@
     ".": "./mod.ts"
   },
   "tasks": {
-    "check": "deno check mod.ts"
+    "check": "deno check mod.ts",
+    "test": "deno test --allow-none src/"
   }
 }
