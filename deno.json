@@ -1,4 +1,8 @@
 {
+  // Deno workspace definition — list each package/app with a deno.json manifest.
+  // Keep membership explicit; Deno does not auto-discover nested manifests.
+  // `packages/plugins` and `packages/templates` are parent directories only.
+  // Add plugin/template members only when a subdirectory includes deno.json.
   "workspace": [
     "packages/core",
     "packages/cli",
