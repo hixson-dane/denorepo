@@ -13,3 +13,9 @@ export type {
   TargetDependency,
   WorkspaceConfig,
 } from "./src/config.ts";
+
+export type { ConfigDiagnostic, ValidationResult } from "./src/validate.ts";
+export {
+  validateProjectConfig,
+  validateWorkspaceConfig,
+} from "./src/validate.ts";
