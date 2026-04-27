@@ -19,3 +19,9 @@ export {
   validateProjectConfig,
   validateWorkspaceConfig,
 } from "./src/validate.ts";
+
+export type {
+  LoadWorkspaceConfigOptions,
+  LoadWorkspaceConfigResult,
+} from "./src/load.ts";
+export { loadWorkspaceConfig } from "./src/load.ts";
