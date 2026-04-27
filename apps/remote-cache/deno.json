@@ -1,0 +1,7 @@
+{
+  "name": "@denorepo/remote-cache",
+  "version": "0.0.0",
+  "exports": {
+    ".": "./mod.ts"
+  }
+}
