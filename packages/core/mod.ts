@@ -25,3 +25,9 @@ export type {
   LoadWorkspaceConfigResult,
 } from "./src/load.ts";
 export { loadWorkspaceConfig } from "./src/load.ts";
+
+export type {
+  LoadMemberConfigResult,
+  LoadProjectConfigsOptions,
+} from "./src/load_project.ts";
+export { loadProjectConfigs } from "./src/load_project.ts";
