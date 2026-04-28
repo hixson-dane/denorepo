@@ -17,31 +17,9 @@ import type {
   TargetDependency,
   WorkspaceConfig,
 } from "./config.ts";
+import { type ConfigDiagnostic, ConfigErrorCode } from "./errors.ts";
 
-// ---------------------------------------------------------------------------
-// Diagnostic types
-// ---------------------------------------------------------------------------
-
-/**
- * A single validation diagnostic describing one problem found in a config
- * object.
- *
- * The `path` field uses a dot-notation / bracket-notation convention similar
- * to JSON Pointer, making it easy to pinpoint the offending field in nested
- * structures (e.g. `"projects[0].name"`, `"targetDefaults.build.cache"`).
- */
-export interface ConfigDiagnostic {
-  /**
-   * Dot/bracket-notation path to the offending field.
-   *
-   * @example "members"
-   * @example "namedInputs.default[2]"
-   */
-  readonly path: string;
-
-  /** Human-readable description of the problem. */
-  readonly message: string;
-}
+export type { ConfigDiagnostic } from "./errors.ts";
 
 /**
  * Result of validating a config object.
@@ -104,7 +82,7 @@ function validateInputDefinition(
   diags: ConfigDiagnostic[],
 ): void {
   if (!isPlainObject(value)) {
-    diags.push({ path, message: "must be a plain object" });
+    diags.push({ code: ConfigErrorCode.INVALID_TYPE, path, message: "must be a plain object" });
     return;
   }
 
@@ -120,6 +98,7 @@ function validateInputDefinition(
 
   if (variantCount === 0) {
     diags.push({
+      code: ConfigErrorCode.MISSING_FIELD,
       path,
       message:
         'must have exactly one of "input", "fileset", "runtime", or "env"',
@@ -129,6 +108,7 @@ function validateInputDefinition(
 
   if (variantCount > 1) {
     diags.push({
+      code: ConfigErrorCode.MUTUALLY_EXCLUSIVE,
       path,
       message:
         '"input", "fileset", "runtime", and "env" are mutually exclusive',
@@ -138,12 +118,13 @@ function validateInputDefinition(
 
   if (hasInput) {
     if (!isString(value["input"])) {
-      diags.push({ path: `${path}.input`, message: "must be a string" });
+      diags.push({ code: ConfigErrorCode.INVALID_TYPE, path: `${path}.input`, message: "must be a string" });
     }
     if ("projects" in value) {
       const p = value["projects"];
       if (p !== "self" && p !== "dependencies") {
         diags.push({
+          code: ConfigErrorCode.INVALID_VALUE,
           path: `${path}.projects`,
           message: 'must be "self" or "dependencies"',
         });
@@ -153,6 +134,7 @@ function validateInputDefinition(
     for (const k of keys) {
       if (!allowedKeys.has(k)) {
         diags.push({
+          code: ConfigErrorCode.UNEXPECTED_FIELD,
           path: `${path}.${k}`,
           message: "unexpected property in input variant",
         });
@@ -160,15 +142,15 @@ function validateInputDefinition(
     }
   } else if (hasFileset) {
     if (!isString(value["fileset"])) {
-      diags.push({ path: `${path}.fileset`, message: "must be a string" });
+      diags.push({ code: ConfigErrorCode.INVALID_TYPE, path: `${path}.fileset`, message: "must be a string" });
     }
   } else if (hasRuntime) {
     if (!isString(value["runtime"])) {
-      diags.push({ path: `${path}.runtime`, message: "must be a string" });
+      diags.push({ code: ConfigErrorCode.INVALID_TYPE, path: `${path}.runtime`, message: "must be a string" });
     }
   } else if (hasEnv) {
     if (!isString(value["env"])) {
-      diags.push({ path: `${path}.env`, message: "must be a string" });
+      diags.push({ code: ConfigErrorCode.INVALID_TYPE, path: `${path}.env`, message: "must be a string" });
     }
   }
 }
@@ -183,13 +165,14 @@ function validateNamedInput(
   diags: ConfigDiagnostic[],
 ): void {
   if (!Array.isArray(value)) {
-    diags.push({ path, message: "must be an array" });
+    diags.push({ code: ConfigErrorCode.INVALID_TYPE, path, message: "must be an array" });
     return;
   }
   for (let i = 0; i < value.length; i++) {
     const item = value[i];
     if (!isString(item) && !isPlainObject(item)) {
       diags.push({
+        code: ConfigErrorCode.INVALID_TYPE,
         path: `${path}[${i}]`,
         message: "must be a string or InputDefinition object",
       });
@@ -209,7 +192,7 @@ function validateNamedInputs(
   diags: ConfigDiagnostic[],
 ): void {
   if (!isPlainObject(value)) {
-    diags.push({ path, message: "must be a plain object" });
+    diags.push({ code: ConfigErrorCode.INVALID_TYPE, path, message: "must be a plain object" });
     return;
   }
   for (const [key, entry] of Object.entries(value)) {
@@ -230,6 +213,7 @@ function validateTargetDependency(
 
   if (!isPlainObject(value)) {
     diags.push({
+      code: ConfigErrorCode.INVALID_TYPE,
       path,
       message: "must be a string or TargetDependency object",
     });
@@ -237,12 +221,13 @@ function validateTargetDependency(
   }
 
   if (!("target" in value) || !isString(value["target"])) {
-    diags.push({ path: `${path}.target`, message: "must be a string" });
+    diags.push({ code: ConfigErrorCode.INVALID_TYPE, path: `${path}.target`, message: "must be a string" });
   }
   if ("projects" in value) {
     const p = value["projects"];
     if (!isString(p)) {
       diags.push({
+        code: ConfigErrorCode.INVALID_TYPE,
         path: `${path}.projects`,
         message: 'must be "self", "dependencies", or a project name string',
       });
@@ -260,23 +245,24 @@ function validateTargetConfig(
   diags: ConfigDiagnostic[],
 ): void {
   if (!isPlainObject(value)) {
-    diags.push({ path, message: "must be a plain object" });
+    diags.push({ code: ConfigErrorCode.INVALID_TYPE, path, message: "must be a plain object" });
     return;
   }
 
   if ("command" in value && !isString(value["command"])) {
-    diags.push({ path: `${path}.command`, message: "must be a string" });
+    diags.push({ code: ConfigErrorCode.INVALID_TYPE, path: `${path}.command`, message: "must be a string" });
   }
   if ("executor" in value && !isString(value["executor"])) {
-    diags.push({ path: `${path}.executor`, message: "must be a string" });
+    diags.push({ code: ConfigErrorCode.INVALID_TYPE, path: `${path}.executor`, message: "must be a string" });
   }
   if ("cache" in value && !isBoolean(value["cache"])) {
-    diags.push({ path: `${path}.cache`, message: "must be a boolean" });
+    diags.push({ code: ConfigErrorCode.INVALID_TYPE, path: `${path}.cache`, message: "must be a boolean" });
   }
   if ("outputs" in value) {
     const outs = value["outputs"];
     if (!isArrayOf(outs, isString)) {
       diags.push({
+        code: ConfigErrorCode.INVALID_TYPE,
         path: `${path}.outputs`,
         message: "must be an array of strings",
       });
@@ -285,12 +271,13 @@ function validateTargetConfig(
   if ("inputs" in value) {
     const inputs = value["inputs"];
     if (!Array.isArray(inputs)) {
-      diags.push({ path: `${path}.inputs`, message: "must be an array" });
+      diags.push({ code: ConfigErrorCode.INVALID_TYPE, path: `${path}.inputs`, message: "must be an array" });
     } else {
       for (let i = 0; i < inputs.length; i++) {
         const item = inputs[i];
         if (!isString(item) && !isPlainObject(item)) {
           diags.push({
+            code: ConfigErrorCode.INVALID_TYPE,
             path: `${path}.inputs[${i}]`,
             message: "must be a string or InputDefinition object",
           });
@@ -303,7 +290,7 @@ function validateTargetConfig(
   if ("dependsOn" in value) {
     const deps = value["dependsOn"];
     if (!Array.isArray(deps)) {
-      diags.push({ path: `${path}.dependsOn`, message: "must be an array" });
+      diags.push({ code: ConfigErrorCode.INVALID_TYPE, path: `${path}.dependsOn`, message: "must be an array" });
     } else {
       for (let i = 0; i < deps.length; i++) {
         validateTargetDependency(deps[i], `${path}.dependsOn[${i}]`, diags);
@@ -311,7 +298,7 @@ function validateTargetConfig(
     }
   }
   if ("options" in value && !isPlainObject(value["options"])) {
-    diags.push({ path: `${path}.options`, message: "must be a plain object" });
+    diags.push({ code: ConfigErrorCode.INVALID_TYPE, path: `${path}.options`, message: "must be a plain object" });
   }
 }
 
@@ -325,7 +312,7 @@ function validateTargets(
   diags: ConfigDiagnostic[],
 ): void {
   if (!isPlainObject(value)) {
-    diags.push({ path, message: "must be a plain object" });
+    diags.push({ code: ConfigErrorCode.INVALID_TYPE, path, message: "must be a plain object" });
     return;
   }
   for (const [key, target] of Object.entries(value)) {
@@ -346,7 +333,7 @@ function validateTargetDefaults(
   diags: ConfigDiagnostic[],
 ): void {
   if (!isPlainObject(value)) {
-    diags.push({ path, message: "must be a plain object" });
+    diags.push({ code: ConfigErrorCode.INVALID_TYPE, path, message: "must be a plain object" });
     return;
   }
   for (const [key, defaults] of Object.entries(value)) {
@@ -385,15 +372,15 @@ export function validateWorkspaceConfig(raw: unknown): ValidationResult {
   if (!isPlainObject(raw)) {
     return {
       ok: false,
-      diagnostics: [{ path: "", message: "must be a plain object" }],
+      diagnostics: [{ code: ConfigErrorCode.INVALID_TYPE, path: "", message: "must be a plain object" }],
     };
   }
 
   // Required: members
   if (!("members" in raw)) {
-    diags.push({ path: "members", message: 'required field "members" is missing' });
+    diags.push({ code: ConfigErrorCode.MISSING_FIELD, path: "members", message: 'required field "members" is missing' });
   } else if (!isArrayOf(raw["members"], isString)) {
-    diags.push({ path: "members", message: "must be an array of strings" });
+    diags.push({ code: ConfigErrorCode.INVALID_TYPE, path: "members", message: "must be an array of strings" });
   }
 
   // Optional: namedInputs
@@ -442,35 +429,35 @@ export function validateProjectConfig(raw: unknown): ValidationResult {
   if (!isPlainObject(raw)) {
     return {
       ok: false,
-      diagnostics: [{ path: "", message: "must be a plain object" }],
+      diagnostics: [{ code: ConfigErrorCode.INVALID_TYPE, path: "", message: "must be a plain object" }],
     };
   }
 
   // Required: name
   if (!("name" in raw)) {
-    diags.push({ path: "name", message: 'required field "name" is missing' });
+    diags.push({ code: ConfigErrorCode.MISSING_FIELD, path: "name", message: 'required field "name" is missing' });
   } else if (!isString(raw["name"])) {
-    diags.push({ path: "name", message: "must be a string" });
+    diags.push({ code: ConfigErrorCode.INVALID_TYPE, path: "name", message: "must be a string" });
   }
 
   // Required: root
   if (!("root" in raw)) {
-    diags.push({ path: "root", message: 'required field "root" is missing' });
+    diags.push({ code: ConfigErrorCode.MISSING_FIELD, path: "root", message: 'required field "root" is missing' });
   } else if (!isString(raw["root"])) {
-    diags.push({ path: "root", message: "must be a string" });
+    diags.push({ code: ConfigErrorCode.INVALID_TYPE, path: "root", message: "must be a string" });
   }
 
   // Optional: version
   if ("version" in raw && raw["version"] !== undefined) {
     if (!isString(raw["version"])) {
-      diags.push({ path: "version", message: "must be a string" });
+      diags.push({ code: ConfigErrorCode.INVALID_TYPE, path: "version", message: "must be a string" });
     }
   }
 
   // Optional: tags
   if ("tags" in raw && raw["tags"] !== undefined) {
     if (!isArrayOf(raw["tags"], isString)) {
-      diags.push({ path: "tags", message: "must be an array of strings" });
+      diags.push({ code: ConfigErrorCode.INVALID_TYPE, path: "tags", message: "must be an array of strings" });
     }
   }
 
@@ -483,6 +470,7 @@ export function validateProjectConfig(raw: unknown): ValidationResult {
   if ("implicitDependencies" in raw && raw["implicitDependencies"] !== undefined) {
     if (!isArrayOf(raw["implicitDependencies"], isString)) {
       diags.push({
+        code: ConfigErrorCode.INVALID_TYPE,
         path: "implicitDependencies",
         message: "must be an array of strings",
       });

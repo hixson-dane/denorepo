@@ -13,7 +13,7 @@
 
 import { parse as parseJsonc } from "jsr:@std/jsonc@^1";
 import type { NamedInput, ProjectConfig, TargetConfig } from "./config.ts";
-import type { ConfigDiagnostic } from "./validate.ts";
+import { type ConfigDiagnostic, ConfigErrorCode } from "./errors.ts";
 import { validateProjectConfig } from "./validate.ts";
 
 // ---------------------------------------------------------------------------
@@ -89,8 +89,10 @@ async function loadOneMember(
       ok: false,
       member,
       diagnostics: [{
+        code: ConfigErrorCode.READ_ERROR,
         path: "",
         message: `Failed to read deno.json: ${message}`,
+        file: configPath,
       }],
     };
   }
@@ -105,8 +107,10 @@ async function loadOneMember(
       ok: false,
       member,
       diagnostics: [{
+        code: ConfigErrorCode.PARSE_ERROR,
         path: "",
         message: `Failed to parse deno.json: ${message}`,
+        file: configPath,
       }],
     };
   }
@@ -117,8 +121,10 @@ async function loadOneMember(
       ok: false,
       member,
       diagnostics: [{
+        code: ConfigErrorCode.INVALID_TYPE,
         path: "",
         message: "deno.json must be a plain object",
+        file: configPath,
       }],
     };
   }
@@ -129,7 +135,15 @@ async function loadOneMember(
   const augmented: Record<string, unknown> = { ...raw, root: member };
   const validation = validateProjectConfig(augmented);
   if (!validation.ok) {
-    return { ok: false, member, diagnostics: validation.diagnostics };
+    // Annotate each validation diagnostic with the file path so callers have
+    // full context even though the pure validator doesn't know about files.
+    // The cast is safe: validation.ok === false guarantees a non-empty
+    // diagnostics tuple per the ValidationResult type definition.
+    const diagnostics = validation.diagnostics.map((d) => ({
+      ...d,
+      file: configPath,
+    })) as [ConfigDiagnostic, ...ConfigDiagnostic[]];
+    return { ok: false, member, diagnostics };
   }
 
   // ── Step 5: Normalize to ProjectConfig ────────────────────────────────────

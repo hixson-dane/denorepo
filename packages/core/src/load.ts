@@ -14,7 +14,7 @@
 
 import { parse as parseJsonc } from "jsr:@std/jsonc@^1";
 import type { WorkspaceConfig } from "./config.ts";
-import type { ConfigDiagnostic } from "./validate.ts";
+import { type ConfigDiagnostic, ConfigErrorCode } from "./errors.ts";
 
 // ---------------------------------------------------------------------------
 // Result type
@@ -119,8 +119,10 @@ export async function loadWorkspaceConfig(
     return {
       ok: false,
       diagnostics: [{
+        code: ConfigErrorCode.READ_ERROR,
         path: "",
         message: `Failed to read deno.json: ${message}`,
+        file: configPath,
       }],
     };
   }
@@ -134,8 +136,10 @@ export async function loadWorkspaceConfig(
     return {
       ok: false,
       diagnostics: [{
+        code: ConfigErrorCode.PARSE_ERROR,
         path: "",
         message: `Failed to parse deno.json: ${message}`,
+        file: configPath,
       }],
     };
   }
@@ -145,8 +149,10 @@ export async function loadWorkspaceConfig(
     return {
       ok: false,
       diagnostics: [{
+        code: ConfigErrorCode.INVALID_TYPE,
         path: "",
         message: "deno.json must be a plain object",
+        file: configPath,
       }],
     };
   }
@@ -158,8 +164,10 @@ export async function loadWorkspaceConfig(
     return {
       ok: false,
       diagnostics: [{
+        code: ConfigErrorCode.MISSING_FIELD,
         path: "workspace",
         message: 'required field "workspace" is missing',
+        file: configPath,
       }],
     };
   }
@@ -170,8 +178,10 @@ export async function loadWorkspaceConfig(
     return {
       ok: false,
       diagnostics: [{
+        code: ConfigErrorCode.INVALID_TYPE,
         path: "workspace",
         message: "must be an array",
+        file: configPath,
       }],
     };
   }
@@ -180,8 +190,10 @@ export async function loadWorkspaceConfig(
   for (let i = 0; i < workspace.length; i++) {
     if (typeof workspace[i] !== "string") {
       diags.push({
+        code: ConfigErrorCode.INVALID_TYPE,
         path: `workspace[${i}]`,
         message: "must be a string",
+        file: configPath,
       });
     }
   }
