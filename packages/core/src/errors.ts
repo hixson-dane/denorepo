@@ -31,7 +31,7 @@ export const ConfigErrorCode = {
   INVALID_VALUE: "CONFIG_INVALID_VALUE",
   /** Two or more mutually-exclusive fields are present simultaneously. */
   MUTUALLY_EXCLUSIVE: "CONFIG_MUTUALLY_EXCLUSIVE",
-  /** An unrecognised field was found where none is permitted. */
+  /** An unrecognized field was found where none is permitted. */
   UNEXPECTED_FIELD: "CONFIG_UNEXPECTED_FIELD",
 } as const;
 

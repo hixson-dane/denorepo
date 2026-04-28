@@ -137,6 +137,8 @@ async function loadOneMember(
   if (!validation.ok) {
     // Annotate each validation diagnostic with the file path so callers have
     // full context even though the pure validator doesn't know about files.
+    // The cast is safe: validation.ok === false guarantees a non-empty
+    // diagnostics tuple per the ValidationResult type definition.
     const diagnostics = validation.diagnostics.map((d) => ({
       ...d,
       file: configPath,
