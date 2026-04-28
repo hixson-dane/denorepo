@@ -20,6 +20,12 @@ export {
   validateWorkspaceConfig,
 } from "./src/validate.ts";
 
+export {
+  ConfigError,
+  ConfigErrorCode,
+  ValidationError,
+} from "./src/errors.ts";
+
 export type {
   LoadWorkspaceConfigOptions,
   LoadWorkspaceConfigResult,
