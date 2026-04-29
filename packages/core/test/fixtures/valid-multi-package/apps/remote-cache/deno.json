@@ -1,0 +1,5 @@
+{
+  "name": "@fixture/remote-cache",
+  "version": "0.2.0",
+  "tags": ["scope:app", "type:app"]
+}

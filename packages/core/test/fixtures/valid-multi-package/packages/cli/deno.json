@@ -1,0 +1,6 @@
+{
+  "name": "@fixture/cli",
+  "version": "1.0.0",
+  "tags": ["scope:cli", "type:app"],
+  "implicitDependencies": ["@fixture/core"]
+}
