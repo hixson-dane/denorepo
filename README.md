@@ -28,7 +28,8 @@ When adding one:
 3. Add the directory path to the root `"workspace"` array in [`deno.json`](deno.json).
 4. Keep dependency direction aligned with the architecture rules (for example: `core` never depends on `cli`, plugins depend on `plugin-sdk`).
 
-## Architecture decision and checklist
+## Architecture decision records
 
-- Architecture decision record: [`docs/architecture/epics/workspace-root.md`](docs/architecture/epics/workspace-root.md)
-- Implementation checklist: [`docs/architecture/epics/workspace-root.md#8-implementation-checklist`](docs/architecture/epics/workspace-root.md#8-implementation-checklist)
+- Workspace root structure: [`docs/architecture/epics/workspace-root.md`](docs/architecture/epics/workspace-root.md)
+  - Implementation checklist: [`docs/architecture/epics/workspace-root.md#8-implementation-checklist`](docs/architecture/epics/workspace-root.md#8-implementation-checklist)
+- Config domain model & extension strategy: [`docs/architecture/epics/config-model.md`](docs/architecture/epics/config-model.md)
