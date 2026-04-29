@@ -18,6 +18,7 @@ Deno.test("ConfigErrorCode — values are stable string constants", () => {
   assertEquals(ConfigErrorCode.INVALID_VALUE, "CONFIG_INVALID_VALUE");
   assertEquals(ConfigErrorCode.MUTUALLY_EXCLUSIVE, "CONFIG_MUTUALLY_EXCLUSIVE");
   assertEquals(ConfigErrorCode.UNEXPECTED_FIELD, "CONFIG_UNEXPECTED_FIELD");
+  assertEquals(ConfigErrorCode.FORBIDDEN_DEPENDENCY, "CONFIG_FORBIDDEN_DEPENDENCY");
 });
 
 // ---------------------------------------------------------------------------
@@ -191,4 +192,38 @@ Deno.test("ValidationError — can be distinguished from ConfigError by instance
 
   assertEquals(configErr instanceof ValidationError, false);
   assertEquals(validationErr instanceof ConfigError, true);
+});
+
+Deno.test("ValidationError — accepts ErrorOptions cause", () => {
+  const cause = new Error("original cause");
+  const diags = [{
+    code: ConfigErrorCode.INVALID_TYPE,
+    path: "members",
+    message: "must be an array of strings",
+  }] as const;
+  const err = new ValidationError(diags, { cause });
+  assertEquals(err.cause, cause);
+});
+
+Deno.test("ConfigDiagnostic — FORBIDDEN_DEPENDENCY code is accepted", () => {
+  const diag: ConfigDiagnostic = {
+    code: ConfigErrorCode.FORBIDDEN_DEPENDENCY,
+    path: "@denorepo/core.implicitDependencies",
+    message: 'Project "@denorepo/core" must not depend on "@denorepo/cli".',
+  };
+  assertEquals(diag.code, "CONFIG_FORBIDDEN_DEPENDENCY");
+  assertEquals(diag.path, "@denorepo/core.implicitDependencies");
+  assertEquals(diag.file, undefined);
+});
+
+Deno.test("ConfigError — diagnostics with FORBIDDEN_DEPENDENCY code", () => {
+  const diags = [{
+    code: ConfigErrorCode.FORBIDDEN_DEPENDENCY,
+    path: "@denorepo/core.implicitDependencies",
+    message: 'Forbidden dependency: "@denorepo/cli".',
+  }] as const;
+  const err = new ConfigError(diags);
+  assertEquals(err.code, "CONFIG_FORBIDDEN_DEPENDENCY");
+  assertEquals(err.name, "ConfigError");
+  assertEquals(err.file, undefined);
 });

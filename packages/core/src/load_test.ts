@@ -224,3 +224,88 @@ Deno.test("loadWorkspaceConfig — normalized config has correct members", async
     assertEquals([...result.config.members], members);
   }
 });
+
+// ---------------------------------------------------------------------------
+// Diagnostic code and file field tests
+// ---------------------------------------------------------------------------
+
+Deno.test("loadWorkspaceConfig — I/O diagnostic has READ_ERROR code", async () => {
+  const result = await loadWorkspaceConfig("/no-such-dir", {
+    readFile: makeReader({}),
+  });
+  assertEquals(result.ok, false);
+  if (!result.ok) {
+    assertEquals(result.diagnostics[0].code, "CONFIG_READ_ERROR");
+  }
+});
+
+Deno.test("loadWorkspaceConfig — I/O diagnostic includes file path", async () => {
+  const result = await loadWorkspaceConfig("/workspace", {
+    readFile: makeReader({}),
+  });
+  assertEquals(result.ok, false);
+  if (!result.ok) {
+    assertEquals(result.diagnostics[0].file, "/workspace/deno.json");
+  }
+});
+
+Deno.test("loadWorkspaceConfig — parse error diagnostic has PARSE_ERROR code", async () => {
+  const result = await loadWorkspaceConfig("/workspace", {
+    readFile: makeReader({ "/workspace/deno.json": "{ bad json" }),
+  });
+  assertEquals(result.ok, false);
+  if (!result.ok) {
+    assertEquals(result.diagnostics[0].code, "CONFIG_PARSE_ERROR");
+    assertEquals(result.diagnostics[0].file, "/workspace/deno.json");
+  }
+});
+
+Deno.test('loadWorkspaceConfig — missing "workspace" diagnostic has MISSING_FIELD code', async () => {
+  const result = await loadWorkspaceConfig("/workspace", {
+    readFile: makeReader({
+      "/workspace/deno.json": JSON.stringify({ name: "@scope/pkg" }),
+    }),
+  });
+  assertEquals(result.ok, false);
+  if (!result.ok) {
+    assertEquals(result.diagnostics[0].code, "CONFIG_MISSING_FIELD");
+    assertEquals(result.diagnostics[0].file, "/workspace/deno.json");
+  }
+});
+
+Deno.test('loadWorkspaceConfig — invalid "workspace" type diagnostic has INVALID_TYPE code', async () => {
+  const result = await loadWorkspaceConfig("/workspace", {
+    readFile: makeReader({
+      "/workspace/deno.json": JSON.stringify({ workspace: "packages/core" }),
+    }),
+  });
+  assertEquals(result.ok, false);
+  if (!result.ok) {
+    assertEquals(result.diagnostics[0].code, "CONFIG_INVALID_TYPE");
+    assertEquals(result.diagnostics[0].file, "/workspace/deno.json");
+  }
+});
+
+Deno.test('loadWorkspaceConfig — non-string workspace entry diagnostic has INVALID_TYPE code', async () => {
+  const result = await loadWorkspaceConfig("/workspace", {
+    readFile: makeReader({
+      "/workspace/deno.json": JSON.stringify({ workspace: [42] }),
+    }),
+  });
+  assertEquals(result.ok, false);
+  if (!result.ok) {
+    assertEquals(result.diagnostics[0].code, "CONFIG_INVALID_TYPE");
+    assertEquals(result.diagnostics[0].file, "/workspace/deno.json");
+  }
+});
+
+Deno.test("loadWorkspaceConfig — plain object diagnostic has INVALID_TYPE code", async () => {
+  const result = await loadWorkspaceConfig("/workspace", {
+    readFile: makeReader({ "/workspace/deno.json": '"just a string"' }),
+  });
+  assertEquals(result.ok, false);
+  if (!result.ok) {
+    assertEquals(result.diagnostics[0].code, "CONFIG_INVALID_TYPE");
+    assertEquals(result.diagnostics[0].file, "/workspace/deno.json");
+  }
+});
