@@ -1,5 +1,6 @@
 import { assertEquals } from "jsr:@std/assert@^1";
 import {
+  validateArchitectureDependencies,
   validateProjectConfig,
   validateWorkspaceConfig,
 } from "./validate.ts";
@@ -409,4 +410,308 @@ Deno.test("validateProjectConfig — target with runtime InputDefinition", () =>
     },
   });
   assertEquals(result.ok, true);
+});
+
+// ---------------------------------------------------------------------------
+// validateWorkspaceConfig — constraints field
+// ---------------------------------------------------------------------------
+
+Deno.test("validateWorkspaceConfig — valid constraints array", () => {
+  const result = validateWorkspaceConfig({
+    members: ["packages/core", "packages/cli"],
+    constraints: [
+      { sourceTag: "scope:core", notDependOnLibsWithTags: ["scope:cli"] },
+      {
+        sourceTag: "scope:plugin",
+        onlyDependOnLibsWithTags: ["scope:plugin-sdk", "scope:core"],
+      },
+    ],
+  });
+  assertEquals(result.ok, true);
+});
+
+Deno.test("validateWorkspaceConfig — constraints undefined is ignored", () => {
+  const result = validateWorkspaceConfig({
+    members: [],
+    constraints: undefined,
+  });
+  assertEquals(result.ok, true);
+});
+
+Deno.test("validateWorkspaceConfig — constraints is not an array", () => {
+  const result = validateWorkspaceConfig({
+    members: [],
+    constraints: "bad",
+  });
+  assertEquals(result.ok, false);
+  assertEquals(result.diagnostics.some((d) => d.path === "constraints"), true);
+});
+
+Deno.test("validateWorkspaceConfig — constraint entry is not a plain object", () => {
+  const result = validateWorkspaceConfig({
+    members: [],
+    constraints: ["not-an-object"],
+  });
+  assertEquals(result.ok, false);
+  assertEquals(result.diagnostics.some((d) => d.path === "constraints[0]"), true);
+});
+
+Deno.test("validateWorkspaceConfig — constraint entry missing sourceTag", () => {
+  const result = validateWorkspaceConfig({
+    members: [],
+    constraints: [{ notDependOnLibsWithTags: ["scope:cli"] }],
+  });
+  assertEquals(result.ok, false);
+  assertEquals(
+    result.diagnostics.some((d) => d.path === "constraints[0].sourceTag"),
+    true,
+  );
+});
+
+Deno.test("validateWorkspaceConfig — constraint notDependOnLibsWithTags is not array of strings", () => {
+  const result = validateWorkspaceConfig({
+    members: [],
+    constraints: [{ sourceTag: "scope:core", notDependOnLibsWithTags: [42] }],
+  });
+  assertEquals(result.ok, false);
+  assertEquals(
+    result.diagnostics.some((d) =>
+      d.path === "constraints[0].notDependOnLibsWithTags"
+    ),
+    true,
+  );
+});
+
+Deno.test("validateWorkspaceConfig — constraint onlyDependOnLibsWithTags is not array of strings", () => {
+  const result = validateWorkspaceConfig({
+    members: [],
+    constraints: [{ sourceTag: "scope:core", onlyDependOnLibsWithTags: [{}] }],
+  });
+  assertEquals(result.ok, false);
+  assertEquals(
+    result.diagnostics.some((d) =>
+      d.path === "constraints[0].onlyDependOnLibsWithTags"
+    ),
+    true,
+  );
+});
+
+// ---------------------------------------------------------------------------
+// validateArchitectureDependencies
+// ---------------------------------------------------------------------------
+
+Deno.test("validateArchitectureDependencies — no constraints returns ok", () => {
+  const result = validateArchitectureDependencies([], [
+    { name: "@denorepo/core", root: "packages/core", tags: ["scope:core"] },
+  ]);
+  assertEquals(result.ok, true);
+});
+
+Deno.test("validateArchitectureDependencies — no projects returns ok", () => {
+  const result = validateArchitectureDependencies(
+    [{ sourceTag: "scope:core", notDependOnLibsWithTags: ["scope:cli"] }],
+    [],
+  );
+  assertEquals(result.ok, true);
+});
+
+Deno.test("validateArchitectureDependencies — valid: core does not depend on cli", () => {
+  const result = validateArchitectureDependencies(
+    [{ sourceTag: "scope:core", notDependOnLibsWithTags: ["scope:cli"] }],
+    [
+      {
+        name: "@denorepo/core",
+        root: "packages/core",
+        tags: ["scope:core"],
+        implicitDependencies: ["@denorepo/plugin-sdk"],
+      },
+      {
+        name: "@denorepo/cli",
+        root: "packages/cli",
+        tags: ["scope:cli"],
+      },
+      {
+        name: "@denorepo/plugin-sdk",
+        root: "packages/plugin-sdk",
+        tags: ["scope:plugin-sdk"],
+      },
+    ],
+  );
+  assertEquals(result.ok, true);
+});
+
+Deno.test("validateArchitectureDependencies — violation: core depends on cli", () => {
+  const result = validateArchitectureDependencies(
+    [{ sourceTag: "scope:core", notDependOnLibsWithTags: ["scope:cli"] }],
+    [
+      {
+        name: "@denorepo/core",
+        root: "packages/core",
+        tags: ["scope:core"],
+        implicitDependencies: ["@denorepo/cli"],
+      },
+      {
+        name: "@denorepo/cli",
+        root: "packages/cli",
+        tags: ["scope:cli"],
+      },
+    ],
+  );
+  assertEquals(result.ok, false);
+  assertEquals(result.diagnostics.length, 1);
+  assertEquals(result.diagnostics[0].code, "CONFIG_FORBIDDEN_DEPENDENCY");
+  assertEquals(
+    result.diagnostics[0].path,
+    "@denorepo/core.implicitDependencies",
+  );
+});
+
+Deno.test("validateArchitectureDependencies — violation: remote-cache depends on cli", () => {
+  const result = validateArchitectureDependencies(
+    [{ sourceTag: "scope:remote-cache", notDependOnLibsWithTags: ["scope:cli"] }],
+    [
+      {
+        name: "@denorepo/remote-cache",
+        root: "apps/remote-cache",
+        tags: ["scope:remote-cache"],
+        implicitDependencies: ["@denorepo/cli"],
+      },
+      {
+        name: "@denorepo/cli",
+        root: "packages/cli",
+        tags: ["scope:cli"],
+      },
+    ],
+  );
+  assertEquals(result.ok, false);
+  assertEquals(result.diagnostics[0].code, "CONFIG_FORBIDDEN_DEPENDENCY");
+});
+
+Deno.test("validateArchitectureDependencies — valid: onlyDependOnLibsWithTags satisfied", () => {
+  const result = validateArchitectureDependencies(
+    [{
+      sourceTag: "scope:plugin",
+      onlyDependOnLibsWithTags: ["scope:plugin-sdk", "scope:core"],
+    }],
+    [
+      {
+        name: "@denorepo/plugin-deno",
+        root: "packages/plugins/deno",
+        tags: ["scope:plugin"],
+        implicitDependencies: ["@denorepo/plugin-sdk"],
+      },
+      {
+        name: "@denorepo/plugin-sdk",
+        root: "packages/plugin-sdk",
+        tags: ["scope:plugin-sdk"],
+      },
+    ],
+  );
+  assertEquals(result.ok, true);
+});
+
+Deno.test("validateArchitectureDependencies — violation: onlyDependOnLibsWithTags not satisfied", () => {
+  const result = validateArchitectureDependencies(
+    [{
+      sourceTag: "scope:plugin",
+      onlyDependOnLibsWithTags: ["scope:plugin-sdk"],
+    }],
+    [
+      {
+        name: "@denorepo/plugin-deno",
+        root: "packages/plugins/deno",
+        tags: ["scope:plugin"],
+        implicitDependencies: ["@denorepo/core"],
+      },
+      {
+        name: "@denorepo/core",
+        root: "packages/core",
+        tags: ["scope:core"],
+      },
+    ],
+  );
+  assertEquals(result.ok, false);
+  assertEquals(result.diagnostics[0].code, "CONFIG_FORBIDDEN_DEPENDENCY");
+  assertEquals(
+    result.diagnostics[0].path,
+    "@denorepo/plugin-deno.implicitDependencies",
+  );
+});
+
+Deno.test("validateArchitectureDependencies — dependency not in projects list is skipped", () => {
+  // If dep project is unknown, we can't check its tags — skip silently.
+  const result = validateArchitectureDependencies(
+    [{ sourceTag: "scope:core", notDependOnLibsWithTags: ["scope:cli"] }],
+    [
+      {
+        name: "@denorepo/core",
+        root: "packages/core",
+        tags: ["scope:core"],
+        implicitDependencies: ["@denorepo/unknown-package"],
+      },
+    ],
+  );
+  assertEquals(result.ok, true);
+});
+
+Deno.test("validateArchitectureDependencies — constraint does not apply when source tag absent", () => {
+  // Project without the constraint's sourceTag should not be checked.
+  const result = validateArchitectureDependencies(
+    [{ sourceTag: "scope:core", notDependOnLibsWithTags: ["scope:cli"] }],
+    [
+      {
+        name: "@denorepo/cli",
+        root: "packages/cli",
+        tags: ["scope:cli"],
+        implicitDependencies: ["@denorepo/other-cli"],
+      },
+      {
+        name: "@denorepo/other-cli",
+        root: "packages/other-cli",
+        tags: ["scope:cli"],
+      },
+    ],
+  );
+  assertEquals(result.ok, true);
+});
+
+Deno.test("validateArchitectureDependencies — project with no tags is not affected by constraints", () => {
+  const result = validateArchitectureDependencies(
+    [{ sourceTag: "scope:core", notDependOnLibsWithTags: ["scope:cli"] }],
+    [
+      {
+        name: "@denorepo/untagged",
+        root: "packages/untagged",
+        implicitDependencies: ["@denorepo/cli"],
+      },
+      {
+        name: "@denorepo/cli",
+        root: "packages/cli",
+        tags: ["scope:cli"],
+      },
+    ],
+  );
+  assertEquals(result.ok, true);
+});
+
+Deno.test("validateArchitectureDependencies — multiple violations reported", () => {
+  const result = validateArchitectureDependencies(
+    [{ sourceTag: "scope:core", notDependOnLibsWithTags: ["scope:cli"] }],
+    [
+      {
+        name: "@denorepo/core",
+        root: "packages/core",
+        tags: ["scope:core"],
+        implicitDependencies: ["@denorepo/cli", "@denorepo/cli-utils"],
+      },
+      { name: "@denorepo/cli", root: "packages/cli", tags: ["scope:cli"] },
+      {
+        name: "@denorepo/cli-utils",
+        root: "packages/cli-utils",
+        tags: ["scope:cli"],
+      },
+    ],
+  );
+  assertEquals(result.ok, false);
+  assertEquals(result.diagnostics.length, 2);
 });

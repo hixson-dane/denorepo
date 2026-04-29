@@ -33,6 +33,8 @@ export const ConfigErrorCode = {
   MUTUALLY_EXCLUSIVE: "CONFIG_MUTUALLY_EXCLUSIVE",
   /** An unrecognized field was found where none is permitted. */
   UNEXPECTED_FIELD: "CONFIG_UNEXPECTED_FIELD",
+  /** A project depends on another project in a way that violates architecture boundary rules. */
+  FORBIDDEN_DEPENDENCY: "CONFIG_FORBIDDEN_DEPENDENCY",
 } as const;
 
 /** Union of all known {@link ConfigErrorCode} string values. */

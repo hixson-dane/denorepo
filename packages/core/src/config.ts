@@ -180,6 +180,59 @@ export interface ProjectConfig {
 }
 
 // ---------------------------------------------------------------------------
+// DepConstraint
+// ---------------------------------------------------------------------------
+
+/**
+ * A single tag-based dependency constraint.
+ *
+ * When a project carries {@link sourceTag}, the constraint further restricts
+ * which projects it is allowed to declare as dependencies (via
+ * {@link ProjectConfig.implicitDependencies}):
+ *
+ * - {@link notDependOnLibsWithTags} — the source project must **not** depend
+ *   on any project that has any of the listed tags.
+ * - {@link onlyDependOnLibsWithTags} — the source project may **only** depend
+ *   on projects that carry at least one of the listed tags.
+ *
+ * At least one of the two optional arrays must be provided for the constraint
+ * to have any effect.
+ *
+ * @example
+ * ```ts
+ * // core must not depend on cli
+ * const constraint: DepConstraint = {
+ *   sourceTag: "scope:core",
+ *   notDependOnLibsWithTags: ["scope:cli"],
+ * };
+ * ```
+ */
+export interface DepConstraint {
+  /**
+   * The tag that must be present on the source project for this constraint to
+   * apply. The value must match one of the project's {@link ProjectConfig.tags}
+   * entries exactly.
+   */
+  readonly sourceTag: string;
+
+  /**
+   * Tags that dependency projects are **forbidden** from having.
+   *
+   * If the dependency project carries any of these tags, a
+   * {@link ConfigErrorCode.FORBIDDEN_DEPENDENCY} diagnostic is emitted.
+   */
+  readonly notDependOnLibsWithTags?: readonly string[];
+
+  /**
+   * Tags of which dependency projects must have **at least one**.
+   *
+   * If the dependency project carries none of the listed tags, a
+   * {@link ConfigErrorCode.FORBIDDEN_DEPENDENCY} diagnostic is emitted.
+   */
+  readonly onlyDependOnLibsWithTags?: readonly string[];
+}
+
+// ---------------------------------------------------------------------------
 // WorkspaceConfig
 // ---------------------------------------------------------------------------
 
@@ -207,4 +260,24 @@ export interface WorkspaceConfig {
    * take precedence.
    */
   readonly targetDefaults?: Readonly<Record<string, TargetDefaults>>;
+
+  /**
+   * Tag-based architecture dependency constraints applied to all projects in
+   * this workspace.
+   *
+   * Each entry specifies rules for projects that carry a particular
+   * {@link DepConstraint.sourceTag}. When {@link validateArchitectureDependencies}
+   * is called with the loaded project configs, any
+   * {@link ProjectConfig.implicitDependencies} that violate these rules are
+   * reported as {@link ConfigErrorCode.FORBIDDEN_DEPENDENCY} diagnostics.
+   *
+   * @example
+   * ```ts
+   * constraints: [
+   *   { sourceTag: "scope:core", notDependOnLibsWithTags: ["scope:cli"] },
+   *   { sourceTag: "scope:remote-cache", notDependOnLibsWithTags: ["scope:cli"] },
+   * ]
+   * ```
+   */
+  readonly constraints?: readonly DepConstraint[];
 }

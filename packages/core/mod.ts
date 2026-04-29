@@ -5,6 +5,7 @@
  */
 
 export type {
+  DepConstraint,
   InputDefinition,
   NamedInput,
   ProjectConfig,
@@ -16,6 +17,7 @@ export type {
 
 export type { ConfigDiagnostic, ValidationResult } from "./src/validate.ts";
 export {
+  validateArchitectureDependencies,
   validateProjectConfig,
   validateWorkspaceConfig,
 } from "./src/validate.ts";
