@@ -606,6 +606,27 @@ export function validateArchitectureDependencies(
     projectTagMap.set(project.name, project.tags ?? []);
   }
 
+  // Pre-compute Sets for each constraint's tag lists so inner-loop lookups
+  // are O(1) rather than O(n) for each tag comparison.
+  type PreparedConstraint = {
+    readonly sourceTag: string;
+    readonly forbiddenTagSet: ReadonlySet<string> | null;
+    readonly allowedTagSet: ReadonlySet<string> | null;
+    readonly forbiddenTagList: readonly string[];
+    readonly allowedTagList: readonly string[];
+  };
+  const prepared: PreparedConstraint[] = constraints.map((c) => ({
+    sourceTag: c.sourceTag,
+    forbiddenTagSet: c.notDependOnLibsWithTags && c.notDependOnLibsWithTags.length > 0
+      ? new Set(c.notDependOnLibsWithTags)
+      : null,
+    allowedTagSet: c.onlyDependOnLibsWithTags && c.onlyDependOnLibsWithTags.length > 0
+      ? new Set(c.onlyDependOnLibsWithTags)
+      : null,
+    forbiddenTagList: c.notDependOnLibsWithTags ?? [],
+    allowedTagList: c.onlyDependOnLibsWithTags ?? [],
+  }));
+
   for (const project of projects) {
     const sourceTags = project.tags ?? [];
     const deps = project.implicitDependencies ?? [];
@@ -616,37 +637,33 @@ export function validateArchitectureDependencies(
       if (!projectTagMap.has(depName)) continue;
       const depTags = projectTagMap.get(depName)!;
 
-      for (const constraint of constraints) {
+      for (const constraint of prepared) {
         if (!sourceTags.includes(constraint.sourceTag)) continue;
 
         // notDependOnLibsWithTags — fail if dep has ANY forbidden tag.
-        if (constraint.notDependOnLibsWithTags && constraint.notDependOnLibsWithTags.length > 0) {
-          const violatedTag = depTags.find((t) =>
-            constraint.notDependOnLibsWithTags!.includes(t)
-          );
+        if (constraint.forbiddenTagSet !== null) {
+          const violatedTag = depTags.find((t) => constraint.forbiddenTagSet!.has(t));
           if (violatedTag !== undefined) {
             diags.push({
               code: ConfigErrorCode.FORBIDDEN_DEPENDENCY,
               path: `${project.name}.implicitDependencies`,
               message:
                 `Project "${project.name}" (tagged "${constraint.sourceTag}") must not depend on "${depName}" (tagged "${violatedTag}"). ` +
-                `Forbidden tags: [${constraint.notDependOnLibsWithTags.join(", ")}].`,
+                `Forbidden tags: [${constraint.forbiddenTagList.join(", ")}].`,
             });
           }
         }
 
         // onlyDependOnLibsWithTags — fail if dep has NONE of the allowed tags.
-        if (constraint.onlyDependOnLibsWithTags && constraint.onlyDependOnLibsWithTags.length > 0) {
-          const hasAllowedTag = depTags.some((t) =>
-            constraint.onlyDependOnLibsWithTags!.includes(t)
-          );
+        if (constraint.allowedTagSet !== null) {
+          const hasAllowedTag = depTags.some((t) => constraint.allowedTagSet!.has(t));
           if (!hasAllowedTag) {
             diags.push({
               code: ConfigErrorCode.FORBIDDEN_DEPENDENCY,
               path: `${project.name}.implicitDependencies`,
               message:
                 `Project "${project.name}" (tagged "${constraint.sourceTag}") may only depend on projects tagged [${
-                  constraint.onlyDependOnLibsWithTags.join(", ")
+                  constraint.allowedTagList.join(", ")
                 }]; "${depName}" has none of those tags.`,
             });
           }
