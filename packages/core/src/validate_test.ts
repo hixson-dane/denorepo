@@ -152,6 +152,97 @@ Deno.test("validateWorkspaceConfig — namedInputs undefined is ignored", () => 
   assertEquals(result.ok, true);
 });
 
+Deno.test("validateWorkspaceConfig — namedInput item is neither string nor plain object", () => {
+  const result = validateWorkspaceConfig({
+    members: [],
+    namedInputs: { default: [42] },
+  });
+  assertEquals(result.ok, false);
+  assertEquals(
+    result.diagnostics.some((d) => d.path === "namedInputs.default[0]"),
+    true,
+  );
+});
+
+Deno.test("validateWorkspaceConfig — namedInput contains valid string item", () => {
+  const result = validateWorkspaceConfig({
+    members: [],
+    namedInputs: { default: ["**/*.ts"] },
+  });
+  assertEquals(result.ok, true);
+});
+
+Deno.test("validateWorkspaceConfig — targetDefaults entry is not a plain object", () => {
+  const result = validateWorkspaceConfig({
+    members: [],
+    targetDefaults: { build: "not-an-object" },
+  });
+  assertEquals(result.ok, false);
+  assertEquals(
+    result.diagnostics.some((d) => d.path === "targetDefaults.build"),
+    true,
+  );
+});
+
+Deno.test("validateWorkspaceConfig — targetDefaults entry with invalid outputs type", () => {
+  const result = validateWorkspaceConfig({
+    members: [],
+    targetDefaults: { build: { outputs: "dist/**" } },
+  });
+  assertEquals(result.ok, false);
+  assertEquals(
+    result.diagnostics.some((d) => d.path === "targetDefaults.build.outputs"),
+    true,
+  );
+});
+
+Deno.test("validateWorkspaceConfig — targetDefaults entry with invalid inputs type", () => {
+  const result = validateWorkspaceConfig({
+    members: [],
+    targetDefaults: { build: { inputs: "bad" } },
+  });
+  assertEquals(result.ok, false);
+  assertEquals(
+    result.diagnostics.some((d) => d.path === "targetDefaults.build.inputs"),
+    true,
+  );
+});
+
+Deno.test("validateWorkspaceConfig — targetDefaults entry with invalid dependsOn type", () => {
+  const result = validateWorkspaceConfig({
+    members: [],
+    targetDefaults: { test: { dependsOn: "build" } },
+  });
+  assertEquals(result.ok, false);
+  assertEquals(
+    result.diagnostics.some((d) => d.path === "targetDefaults.test.dependsOn"),
+    true,
+  );
+});
+
+Deno.test("validateWorkspaceConfig — valid targetDefaults with full fields", () => {
+  const result = validateWorkspaceConfig({
+    members: ["packages/core"],
+    targetDefaults: {
+      build: {
+        inputs: ["**/*.ts"],
+        outputs: ["dist/**"],
+        dependsOn: ["lint"],
+        cache: true,
+      },
+    },
+  });
+  assertEquals(result.ok, true);
+});
+
+Deno.test("validateWorkspaceConfig — constraint with no tag restriction arrays is valid", () => {
+  const result = validateWorkspaceConfig({
+    members: [],
+    constraints: [{ sourceTag: "scope:core" }],
+  });
+  assertEquals(result.ok, true);
+});
+
 // ---------------------------------------------------------------------------
 // validateProjectConfig
 // ---------------------------------------------------------------------------
@@ -410,6 +501,115 @@ Deno.test("validateProjectConfig — target with runtime InputDefinition", () =>
     },
   });
   assertEquals(result.ok, true);
+});
+
+Deno.test("validateProjectConfig — target with env InputDefinition", () => {
+  const result = validateProjectConfig({
+    name: "@denorepo/core",
+    root: "packages/core",
+    targets: {
+      build: { inputs: [{ env: "NODE_ENV" }] },
+    },
+  });
+  assertEquals(result.ok, true);
+});
+
+Deno.test("validateProjectConfig — target cache is not boolean", () => {
+  const result = validateProjectConfig({
+    name: "@denorepo/core",
+    root: "packages/core",
+    targets: { build: { cache: "yes" } },
+  });
+  assertEquals(result.ok, false);
+  assertEquals(
+    result.diagnostics.some((d) => d.path === "targets.build.cache"),
+    true,
+  );
+});
+
+Deno.test("validateProjectConfig — target inputs is not an array", () => {
+  const result = validateProjectConfig({
+    name: "@denorepo/core",
+    root: "packages/core",
+    targets: { build: { inputs: "**/*.ts" } },
+  });
+  assertEquals(result.ok, false);
+  assertEquals(
+    result.diagnostics.some((d) => d.path === "targets.build.inputs"),
+    true,
+  );
+});
+
+Deno.test("validateProjectConfig — target inputs contains item that is neither string nor object", () => {
+  const result = validateProjectConfig({
+    name: "@denorepo/core",
+    root: "packages/core",
+    targets: { build: { inputs: [42] } },
+  });
+  assertEquals(result.ok, false);
+  assertEquals(
+    result.diagnostics.some((d) => d.path === "targets.build.inputs[0]"),
+    true,
+  );
+});
+
+Deno.test("validateProjectConfig — target inputs contains invalid InputDefinition", () => {
+  const result = validateProjectConfig({
+    name: "@denorepo/core",
+    root: "packages/core",
+    targets: { build: { inputs: [{ fileset: 123 }] } },
+  });
+  assertEquals(result.ok, false);
+  assertEquals(
+    result.diagnostics.some((d) =>
+      d.path === "targets.build.inputs[0].fileset"
+    ),
+    true,
+  );
+});
+
+Deno.test("validateProjectConfig — target dependsOn contains item that is neither string nor object", () => {
+  const result = validateProjectConfig({
+    name: "@denorepo/core",
+    root: "packages/core",
+    targets: { build: { dependsOn: [42] } },
+  });
+  assertEquals(result.ok, false);
+  assertEquals(
+    result.diagnostics.some((d) =>
+      d.path === "targets.build.dependsOn[0]"
+    ),
+    true,
+  );
+});
+
+Deno.test("validateProjectConfig — target dependsOn object with valid projects string", () => {
+  const result = validateProjectConfig({
+    name: "@denorepo/core",
+    root: "packages/core",
+    targets: {
+      test: {
+        dependsOn: [
+          { target: "build", projects: "dependencies" },
+          { target: "lint", projects: "@denorepo/cli" },
+        ],
+      },
+    },
+  });
+  assertEquals(result.ok, true);
+});
+
+Deno.test("validateProjectConfig — multiple field errors reported together", () => {
+  const result = validateProjectConfig({
+    name: 42,
+    root: 99,
+    version: true,
+  });
+  assertEquals(result.ok, false);
+  assertEquals(result.diagnostics.length >= 3, true);
+  assertEquals(result.diagnostics.some((d) => d.path === "name"), true);
+  assertEquals(result.diagnostics.some((d) => d.path === "root"), true);
+  assertEquals(result.diagnostics.some((d) => d.path === "version"), true);
 });
 
 // ---------------------------------------------------------------------------
@@ -714,4 +914,111 @@ Deno.test("validateArchitectureDependencies — multiple violations reported", (
   );
   assertEquals(result.ok, false);
   assertEquals(result.diagnostics.length, 2);
+});
+
+Deno.test("validateArchitectureDependencies — constraint with both notDepend and onlyDepend on same dep", () => {
+  // dep has forbidden tag AND is not in the allowed-only list → two violations.
+  const result = validateArchitectureDependencies(
+    [{
+      sourceTag: "scope:plugin",
+      notDependOnLibsWithTags: ["scope:cli"],
+      onlyDependOnLibsWithTags: ["scope:plugin-sdk"],
+    }],
+    [
+      {
+        name: "@denorepo/plugin-deno",
+        root: "packages/plugins/deno",
+        tags: ["scope:plugin"],
+        implicitDependencies: ["@denorepo/cli"],
+      },
+      {
+        name: "@denorepo/cli",
+        root: "packages/cli",
+        tags: ["scope:cli"],
+      },
+    ],
+  );
+  assertEquals(result.ok, false);
+  assertEquals(result.diagnostics.length, 2);
+  assertEquals(result.diagnostics[0].code, "CONFIG_FORBIDDEN_DEPENDENCY");
+  assertEquals(result.diagnostics[1].code, "CONFIG_FORBIDDEN_DEPENDENCY");
+});
+
+Deno.test("validateArchitectureDependencies — constraint with empty tag arrays behaves as no restriction", () => {
+  // An empty notDependOnLibsWithTags array should not trigger violations.
+  const result = validateArchitectureDependencies(
+    [{
+      sourceTag: "scope:core",
+      notDependOnLibsWithTags: [],
+      onlyDependOnLibsWithTags: [],
+    }],
+    [
+      {
+        name: "@denorepo/core",
+        root: "packages/core",
+        tags: ["scope:core"],
+        implicitDependencies: ["@denorepo/cli"],
+      },
+      {
+        name: "@denorepo/cli",
+        root: "packages/cli",
+        tags: ["scope:cli"],
+      },
+    ],
+  );
+  assertEquals(result.ok, true);
+});
+
+Deno.test("validateArchitectureDependencies — multiple projects with multiple constraints", () => {
+  const result = validateArchitectureDependencies(
+    [
+      { sourceTag: "scope:core", notDependOnLibsWithTags: ["scope:cli"] },
+      {
+        sourceTag: "scope:plugin",
+        onlyDependOnLibsWithTags: ["scope:plugin-sdk"],
+      },
+    ],
+    [
+      {
+        name: "@denorepo/core",
+        root: "packages/core",
+        tags: ["scope:core"],
+        implicitDependencies: ["@denorepo/plugin-sdk"],
+      },
+      {
+        name: "@denorepo/plugin-deno",
+        root: "packages/plugins/deno",
+        tags: ["scope:plugin"],
+        implicitDependencies: ["@denorepo/plugin-sdk"],
+      },
+      {
+        name: "@denorepo/plugin-sdk",
+        root: "packages/plugin-sdk",
+        tags: ["scope:plugin-sdk"],
+      },
+    ],
+  );
+  assertEquals(result.ok, true);
+});
+
+Deno.test("validateArchitectureDependencies — diagnostic message includes project and dep names", () => {
+  const result = validateArchitectureDependencies(
+    [{ sourceTag: "scope:core", notDependOnLibsWithTags: ["scope:cli"] }],
+    [
+      {
+        name: "@denorepo/core",
+        root: "packages/core",
+        tags: ["scope:core"],
+        implicitDependencies: ["@denorepo/cli"],
+      },
+      {
+        name: "@denorepo/cli",
+        root: "packages/cli",
+        tags: ["scope:cli"],
+      },
+    ],
+  );
+  assertEquals(result.ok, false);
+  assertEquals(result.diagnostics[0].message.includes("@denorepo/core"), true);
+  assertEquals(result.diagnostics[0].message.includes("@denorepo/cli"), true);
 });

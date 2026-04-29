@@ -357,3 +357,83 @@ Deno.test("loadProjectConfigs — results are in the same order as members", asy
     assertEquals(results[i].member, members[i]);
   }
 });
+
+// ---------------------------------------------------------------------------
+// Diagnostic code and file field tests
+// ---------------------------------------------------------------------------
+
+Deno.test("loadProjectConfigs — I/O diagnostic has READ_ERROR code and file path", async () => {
+  const results = await loadProjectConfigs("/workspace", ["packages/missing"], {
+    readFile: makeReader({}),
+  });
+  assertEquals(results[0].ok, false);
+  if (!results[0].ok) {
+    assertEquals(results[0].diagnostics[0].code, "CONFIG_READ_ERROR");
+    assertEquals(
+      results[0].diagnostics[0].file,
+      "/workspace/packages/missing/deno.json",
+    );
+  }
+});
+
+Deno.test("loadProjectConfigs — parse error diagnostic has PARSE_ERROR code and file path", async () => {
+  const results = await loadProjectConfigs("/workspace", ["packages/core"], {
+    readFile: makeReader({
+      "/workspace/packages/core/deno.json": "{ bad json",
+    }),
+  });
+  assertEquals(results[0].ok, false);
+  if (!results[0].ok) {
+    assertEquals(results[0].diagnostics[0].code, "CONFIG_PARSE_ERROR");
+    assertEquals(
+      results[0].diagnostics[0].file,
+      "/workspace/packages/core/deno.json",
+    );
+  }
+});
+
+Deno.test('loadProjectConfigs — missing "name" diagnostic has MISSING_FIELD code', async () => {
+  const results = await loadProjectConfigs("/workspace", ["packages/core"], {
+    readFile: makeReader({
+      "/workspace/packages/core/deno.json": JSON.stringify({ version: "0.0.0" }),
+    }),
+  });
+  assertEquals(results[0].ok, false);
+  if (!results[0].ok) {
+    const nameDiag = results[0].diagnostics.find((d) => d.path === "name");
+    assertEquals(nameDiag !== undefined, true);
+    assertEquals(nameDiag!.code, "CONFIG_MISSING_FIELD");
+    assertEquals(nameDiag!.file, "/workspace/packages/core/deno.json");
+  }
+});
+
+Deno.test('loadProjectConfigs — invalid type diagnostic has INVALID_TYPE code', async () => {
+  const results = await loadProjectConfigs("/workspace", ["packages/core"], {
+    readFile: makeReader({
+      "/workspace/packages/core/deno.json": JSON.stringify({ name: 42 }),
+    }),
+  });
+  assertEquals(results[0].ok, false);
+  if (!results[0].ok) {
+    const nameDiag = results[0].diagnostics.find((d) => d.path === "name");
+    assertEquals(nameDiag !== undefined, true);
+    assertEquals(nameDiag!.code, "CONFIG_INVALID_TYPE");
+    assertEquals(nameDiag!.file, "/workspace/packages/core/deno.json");
+  }
+});
+
+Deno.test("loadProjectConfigs — plain object diagnostic has INVALID_TYPE code and file path", async () => {
+  const results = await loadProjectConfigs("/workspace", ["packages/core"], {
+    readFile: makeReader({
+      "/workspace/packages/core/deno.json": '"just a string"',
+    }),
+  });
+  assertEquals(results[0].ok, false);
+  if (!results[0].ok) {
+    assertEquals(results[0].diagnostics[0].code, "CONFIG_INVALID_TYPE");
+    assertEquals(
+      results[0].diagnostics[0].file,
+      "/workspace/packages/core/deno.json",
+    );
+  }
+});
