@@ -358,6 +358,7 @@ function validateDepConstraint(
 
   if (!("sourceTag" in value) || !isString(value["sourceTag"])) {
     diags.push({ code: ConfigErrorCode.INVALID_TYPE, path: `${path}.sourceTag`, message: "must be a string" });
+    return;
   }
 
   if ("notDependOnLibsWithTags" in value && value["notDependOnLibsWithTags"] !== undefined) {
