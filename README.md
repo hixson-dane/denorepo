@@ -33,3 +33,4 @@ When adding one:
 - Workspace root structure: [`docs/architecture/epics/workspace-root.md`](docs/architecture/epics/workspace-root.md)
   - Implementation checklist: [`docs/architecture/epics/workspace-root.md#8-implementation-checklist`](docs/architecture/epics/workspace-root.md#8-implementation-checklist)
 - Config domain model & extension strategy: [`docs/architecture/epics/config-model.md`](docs/architecture/epics/config-model.md)
+- Graph builder + graph command: [`docs/architecture/epics/project-graph-builder.md`](docs/architecture/epics/project-graph-builder.md)
