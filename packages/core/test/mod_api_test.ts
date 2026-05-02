@@ -13,6 +13,7 @@
 
 import { assert, assertEquals, assertInstanceOf } from "jsr:@std/assert@^1";
 import {
+  buildProjectGraph,
   ConfigError,
   ConfigErrorCode,
   loadProjectConfigs,
@@ -25,6 +26,7 @@ import {
 import type {
   ConfigDiagnostic,
   DepConstraint,
+  DependencyEdgeConfig,
   InputDefinition,
   LoadMemberConfigResult,
   LoadProjectConfigsOptions,
@@ -32,6 +34,7 @@ import type {
   LoadWorkspaceConfigResult,
   NamedInput,
   ProjectDependencyEdge,
+  ProjectDependencyEdgeType,
   ProjectGraph,
   ProjectConfig,
   ProjectNode,
@@ -48,14 +51,23 @@ import type {
 // ---------------------------------------------------------------------------
 
 Deno.test("mod.ts: WorkspaceConfig type is assignable", () => {
-  const cfg: WorkspaceConfig = { members: ["packages/core"] };
+  const cfg: WorkspaceConfig = {
+    members: ["packages/core"],
+    dependencyEdges: [{ source: "@scope/app", target: "@scope/pkg" }],
+  };
   assertEquals(cfg.members, ["packages/core"]);
+  assertEquals(cfg.dependencyEdges?.length, 1);
 });
 
 Deno.test("mod.ts: ProjectConfig type is assignable", () => {
-  const cfg: ProjectConfig = { name: "@scope/pkg", root: "packages/pkg" };
+  const cfg: ProjectConfig = {
+    name: "@scope/pkg",
+    root: "packages/pkg",
+    explicitDependencies: ["@scope/shared"],
+  };
   assertEquals(cfg.name, "@scope/pkg");
   assertEquals(cfg.root, "packages/pkg");
+  assertEquals(cfg.explicitDependencies, ["@scope/shared"]);
 });
 
 Deno.test("mod.ts: ProjectNode type is assignable", () => {
@@ -63,10 +75,20 @@ Deno.test("mod.ts: ProjectNode type is assignable", () => {
   assertEquals(node.id, "@scope/pkg");
 });
 
+Deno.test("mod.ts: ProjectDependencyEdgeType is assignable", () => {
+  const type: ProjectDependencyEdgeType = "explicit";
+  assertEquals(type, "explicit");
+});
+
 Deno.test("mod.ts: ProjectDependencyEdge type is assignable", () => {
-  const edge: ProjectDependencyEdge = { source: "@scope/app", target: "@scope/pkg" };
+  const edge: ProjectDependencyEdge = {
+    source: "@scope/app",
+    target: "@scope/pkg",
+    type: "explicit",
+  };
   assertEquals(edge.source, "@scope/app");
   assertEquals(edge.target, "@scope/pkg");
+  assertEquals(edge.type, "explicit");
 });
 
 Deno.test("mod.ts: ProjectGraph type is assignable", () => {
@@ -74,10 +96,16 @@ Deno.test("mod.ts: ProjectGraph type is assignable", () => {
   const pkg: ProjectNodeId = "@scope/pkg";
   const graph: ProjectGraph = {
     nodes: [{ id: app, root: "apps/app" }, { id: pkg, root: "packages/pkg" }],
-    edges: [{ source: app, target: pkg }],
+    edges: [{ source: app, target: pkg, type: "implicit" }],
   };
   assertEquals(graph.nodes.length, 2);
   assertEquals(graph.edges.length, 1);
+});
+
+Deno.test("mod.ts: DependencyEdgeConfig type is assignable", () => {
+  const edge: DependencyEdgeConfig = { source: "@scope/app", target: "@scope/pkg" };
+  assertEquals(edge.source, "@scope/app");
+  assertEquals(edge.target, "@scope/pkg");
 });
 
 Deno.test("mod.ts: TargetConfig type is assignable", () => {
@@ -184,8 +212,27 @@ Deno.test("mod.ts: validateArchitectureDependencies is callable", () => {
     { name: "@scope/cli", root: "packages/cli", tags: ["scope:cli"] },
   ];
   const constraints: DepConstraint[] = [];
-  const diagnostics = validateArchitectureDependencies(projects, constraints);
-  assertEquals(Array.isArray(diagnostics), true);
+  const result = validateArchitectureDependencies(constraints, projects);
+  assertEquals(typeof result.ok, "boolean");
+});
+
+Deno.test("mod.ts: buildProjectGraph is callable", () => {
+  const graph = buildProjectGraph(
+    [
+      {
+        name: "@scope/app",
+        root: "apps/app",
+        explicitDependencies: ["@scope/pkg"],
+      },
+      {
+        name: "@scope/pkg",
+        root: "packages/pkg",
+      },
+    ],
+  );
+  assertEquals(graph.edges, [
+    { source: "@scope/app", target: "@scope/pkg", type: "explicit" },
+  ]);
 });
 
 // ---------------------------------------------------------------------------

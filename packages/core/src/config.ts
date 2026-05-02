@@ -173,10 +173,31 @@ export interface ProjectConfig {
   readonly implicitDependencies?: readonly string[];
 
   /**
+   * Explicit project dependencies declared directly in project config.
+   *
+   * These are modeled as directed graph edges where the current project is the
+   * source and each listed project is a target.
+   */
+  readonly explicitDependencies?: readonly string[];
+
+  /**
    * Project-level named input overrides. These are merged with (and take
    * precedence over) the workspace-level {@link WorkspaceConfig.namedInputs}.
    */
   readonly namedInputs?: Readonly<Record<string, NamedInput>>;
+}
+
+/**
+ * Workspace-level dependency edge declaration.
+ *
+ * `source` depends on `target`.
+ */
+export interface DependencyEdgeConfig {
+  /** Dependent project name. */
+  readonly source: string;
+
+  /** Dependency project name. */
+  readonly target: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -260,6 +281,11 @@ export interface WorkspaceConfig {
    * take precedence.
    */
   readonly targetDefaults?: Readonly<Record<string, TargetDefaults>>;
+
+  /**
+   * Workspace-level explicit dependency edges between projects.
+   */
+  readonly dependencyEdges?: readonly DependencyEdgeConfig[];
 
   /**
    * Tag-based architecture dependency constraints applied to all projects in

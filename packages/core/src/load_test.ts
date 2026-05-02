@@ -48,6 +48,41 @@ Deno.test("loadWorkspaceConfig — empty workspace array is valid", async () => 
   }
 });
 
+Deno.test("loadWorkspaceConfig — includes optional dependencyEdges", async () => {
+  const result = await loadWorkspaceConfig("/workspace", {
+    readFile: makeReader({
+      "/workspace/deno.json": JSON.stringify({
+        workspace: ["packages/core", "packages/cli"],
+        dependencyEdges: [{ source: "@denorepo/cli", target: "@denorepo/core" }],
+      }),
+    }),
+  });
+  assertEquals(result.ok, true);
+  if (result.ok) {
+    assertEquals(result.config.dependencyEdges, [
+      { source: "@denorepo/cli", target: "@denorepo/core" },
+    ]);
+  }
+});
+
+Deno.test("loadWorkspaceConfig — invalid dependencyEdges shape returns diagnostic", async () => {
+  const result = await loadWorkspaceConfig("/workspace", {
+    readFile: makeReader({
+      "/workspace/deno.json": JSON.stringify({
+        workspace: ["packages/core"],
+        dependencyEdges: [{ source: 42, target: "@denorepo/core" }],
+      }),
+    }),
+  });
+  assertEquals(result.ok, false);
+  if (!result.ok) {
+    assertEquals(
+      result.diagnostics.some((d) => d.path === "dependencyEdges[0].source"),
+      true,
+    );
+  }
+});
+
 Deno.test("loadWorkspaceConfig — strips trailing slash from root path", async () => {
   const result = await loadWorkspaceConfig("/workspace/", {
     readFile: makeReader({

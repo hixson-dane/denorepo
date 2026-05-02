@@ -13,8 +13,9 @@
  */
 
 import { parse as parseJsonc } from "jsr:@std/jsonc@^1";
-import type { WorkspaceConfig } from "./config.ts";
+import type { DependencyEdgeConfig, WorkspaceConfig } from "./config.ts";
 import { type ConfigDiagnostic, ConfigErrorCode } from "./errors.ts";
+import { validateWorkspaceConfig } from "./validate.ts";
 
 // ---------------------------------------------------------------------------
 // Result type
@@ -208,7 +209,19 @@ export async function loadWorkspaceConfig(
   // ── Step 5: Normalize to WorkspaceConfig ───────────────────────────────────
   const config: WorkspaceConfig = {
     members: workspace as string[],
+    ...(obj["dependencyEdges"] !== undefined && {
+      dependencyEdges: obj["dependencyEdges"] as readonly DependencyEdgeConfig[],
+    }),
   };
+
+  const validation = validateWorkspaceConfig(config);
+  if (!validation.ok) {
+    const diagnostics = validation.diagnostics.map((d) => ({
+      ...d,
+      file: configPath,
+    })) as [ConfigDiagnostic, ...ConfigDiagnostic[]];
+    return { ok: false, diagnostics };
+  }
 
   return { ok: true, config };
 }

@@ -398,6 +398,44 @@ function validateConstraints(
   }
 }
 
+/**
+ * Validates a single {@link DependencyEdgeConfig} object.
+ */
+function validateDependencyEdge(
+  value: unknown,
+  path: string,
+  diags: ConfigDiagnostic[],
+): void {
+  if (!isPlainObject(value)) {
+    diags.push({ code: ConfigErrorCode.INVALID_TYPE, path, message: "must be a plain object" });
+    return;
+  }
+
+  if (!("source" in value) || !isString(value["source"])) {
+    diags.push({ code: ConfigErrorCode.INVALID_TYPE, path: `${path}.source`, message: "must be a string" });
+  }
+  if (!("target" in value) || !isString(value["target"])) {
+    diags.push({ code: ConfigErrorCode.INVALID_TYPE, path: `${path}.target`, message: "must be a string" });
+  }
+}
+
+/**
+ * Validates a dependency-edges array.
+ */
+function validateDependencyEdges(
+  value: unknown,
+  path: string,
+  diags: ConfigDiagnostic[],
+): void {
+  if (!Array.isArray(value)) {
+    diags.push({ code: ConfigErrorCode.INVALID_TYPE, path, message: "must be an array" });
+    return;
+  }
+  for (let i = 0; i < value.length; i++) {
+    validateDependencyEdge(value[i], `${path}[${i}]`, diags);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Public validators
 // ---------------------------------------------------------------------------
@@ -453,6 +491,11 @@ export function validateWorkspaceConfig(raw: unknown): ValidationResult {
   // Optional: constraints
   if ("constraints" in raw && raw["constraints"] !== undefined) {
     validateConstraints(raw["constraints"], "constraints", diags);
+  }
+
+  // Optional: dependencyEdges
+  if ("dependencyEdges" in raw && raw["dependencyEdges"] !== undefined) {
+    validateDependencyEdges(raw["dependencyEdges"], "dependencyEdges", diags);
   }
 
   if (diags.length === 0) {
@@ -534,6 +577,17 @@ export function validateProjectConfig(raw: unknown): ValidationResult {
       diags.push({
         code: ConfigErrorCode.INVALID_TYPE,
         path: "implicitDependencies",
+        message: "must be an array of strings",
+      });
+    }
+  }
+
+  // Optional: explicitDependencies
+  if ("explicitDependencies" in raw && raw["explicitDependencies"] !== undefined) {
+    if (!isArrayOf(raw["explicitDependencies"], isString)) {
+      diags.push({
+        code: ConfigErrorCode.INVALID_TYPE,
+        path: "explicitDependencies",
         message: "must be an array of strings",
       });
     }
