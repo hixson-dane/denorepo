@@ -31,7 +31,11 @@ import type {
   LoadWorkspaceConfigOptions,
   LoadWorkspaceConfigResult,
   NamedInput,
+  ProjectDependencyEdge,
+  ProjectGraph,
   ProjectConfig,
+  ProjectNode,
+  ProjectNodeId,
   TargetConfig,
   TargetDefaults,
   TargetDependency,
@@ -52,6 +56,28 @@ Deno.test("mod.ts: ProjectConfig type is assignable", () => {
   const cfg: ProjectConfig = { name: "@scope/pkg", root: "packages/pkg" };
   assertEquals(cfg.name, "@scope/pkg");
   assertEquals(cfg.root, "packages/pkg");
+});
+
+Deno.test("mod.ts: ProjectNode type is assignable", () => {
+  const node: ProjectNode = { id: "@scope/pkg", root: "packages/pkg" };
+  assertEquals(node.id, "@scope/pkg");
+});
+
+Deno.test("mod.ts: ProjectDependencyEdge type is assignable", () => {
+  const edge: ProjectDependencyEdge = { source: "@scope/app", target: "@scope/pkg" };
+  assertEquals(edge.source, "@scope/app");
+  assertEquals(edge.target, "@scope/pkg");
+});
+
+Deno.test("mod.ts: ProjectGraph type is assignable", () => {
+  const app: ProjectNodeId = "@scope/app";
+  const pkg: ProjectNodeId = "@scope/pkg";
+  const graph: ProjectGraph = {
+    nodes: [{ id: app, root: "apps/app" }, { id: pkg, root: "packages/pkg" }],
+    edges: [{ source: app, target: pkg }],
+  };
+  assertEquals(graph.nodes.length, 2);
+  assertEquals(graph.edges.length, 1);
 });
 
 Deno.test("mod.ts: TargetConfig type is assignable", () => {

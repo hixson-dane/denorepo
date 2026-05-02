@@ -42,6 +42,9 @@
  * - {@link InputDefinition} — structured cache-key input (glob, env var, runtime command, etc.)
  * - {@link NamedInput} — ordered list of input definitions, referenced by name
  * - {@link TargetDependency} — dependency on another target, optionally cross-project
+ * - {@link ProjectNode} — one project node in the workspace graph
+ * - {@link ProjectDependencyEdge} — directed dependency edge between projects
+ * - {@link ProjectGraph} — graph container with project nodes and edges
  *
  * ### Loaders
  * - {@link loadWorkspaceConfig} — read, parse, and validate the root `deno.json`
@@ -81,6 +84,16 @@ export type {
   TargetDependency,
   WorkspaceConfig,
 } from "./src/config.ts";
+
+/**
+ * Domain types for representing project graph nodes and dependency edges.
+ */
+export type {
+  ProjectDependencyEdge,
+  ProjectGraph,
+  ProjectNode,
+  ProjectNodeId,
+} from "./src/graph.ts";
 
 // ---------------------------------------------------------------------------
 // Loaders
