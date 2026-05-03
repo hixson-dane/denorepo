@@ -17,7 +17,8 @@ export type ProjectNodeId = string;
 /**
  * Classification of a dependency edge's source.
  *
- * - `"explicit"` — declared directly in config via explicit dependency fields.
+ * - `"explicit"` — declared directly in config via project `explicitDependencies`
+ *   or workspace `dependencyEdges`.
  * - `"implicit"` — declared via `implicitDependencies`.
  */
 export type ProjectDependencyEdgeType = "explicit" | "implicit";
