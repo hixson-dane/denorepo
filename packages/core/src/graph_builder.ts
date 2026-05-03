@@ -1,3 +1,12 @@
+/**
+ * Project graph construction utilities.
+ *
+ * Builds deterministic {@link ProjectGraph} values from validated workspace and
+ * project configuration data.
+ *
+ * @module
+ */
+
 import type { ProjectConfig, WorkspaceConfig } from "./config.ts";
 import type {
   ProjectDependencyEdge,

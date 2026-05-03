@@ -81,8 +81,10 @@ export interface LoadWorkspaceConfigOptions {
  * 3. Parses the content as JSONC (JSON with comments).
  * 4. Validates that the root value is a plain object containing a `"workspace"`
  *    array of strings; collects any structural violations as diagnostics.
- * 5. Returns a normalized {@link WorkspaceConfig} whose `members` field
- *    corresponds to the `"workspace"` array in `deno.json`.
+ * 5. Normalizes supported fields into a {@link WorkspaceConfig} (`members`
+ *    and optional `dependencyEdges`).
+ * 6. Runs {@link validateWorkspaceConfig} on the normalized config and returns
+ *    any resulting diagnostics.
  *
  * @param workspaceRoot - Absolute path string or `file:` URL pointing to the
  *   directory that contains the root `deno.json`.
