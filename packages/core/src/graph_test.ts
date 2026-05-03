@@ -22,10 +22,12 @@ Deno.test("graph domain: ProjectDependencyEdge type is assignable", () => {
   const edge: ProjectDependencyEdge = {
     source: "@denorepo/cli",
     target: "@denorepo/core",
+    type: "implicit",
   };
 
   assertEquals(edge.source, "@denorepo/cli");
   assertEquals(edge.target, "@denorepo/core");
+  assertEquals(edge.type, "implicit");
 });
 
 Deno.test("graph domain: ProjectGraph type is assignable", () => {
@@ -38,11 +40,15 @@ Deno.test("graph domain: ProjectGraph type is assignable", () => {
       { id: cliId, root: "packages/cli" },
     ],
     edges: [
-      { source: cliId, target: coreId },
+      { source: cliId, target: coreId, type: "explicit" },
     ],
   };
 
   assertEquals(graph.nodes.length, 2);
   assertEquals(graph.edges.length, 1);
-  assertEquals(graph.edges[0], { source: "@denorepo/cli", target: "@denorepo/core" });
+  assertEquals(graph.edges[0], {
+    source: "@denorepo/cli",
+    target: "@denorepo/core",
+    type: "explicit",
+  });
 });

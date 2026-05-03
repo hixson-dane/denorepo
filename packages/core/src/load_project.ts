@@ -160,6 +160,9 @@ async function loadOneMember(
     ...(raw["implicitDependencies"] !== undefined && {
       implicitDependencies: raw["implicitDependencies"] as readonly string[],
     }),
+    ...(raw["explicitDependencies"] !== undefined && {
+      explicitDependencies: raw["explicitDependencies"] as readonly string[],
+    }),
     ...(raw["namedInputs"] !== undefined && {
       namedInputs: raw["namedInputs"] as Readonly<Record<string, NamedInput>>,
     }),

@@ -39,12 +39,16 @@
  * - {@link TargetConfig} — configuration for a named target (task) within a project
  * - {@link TargetDefaults} — workspace-wide default settings applied to named targets
  * - {@link DepConstraint} — tag-based architecture dependency constraint rule
+ * - {@link DependencyEdgeConfig} — explicit dependency edge declared in config
  * - {@link InputDefinition} — structured cache-key input (glob, env var, runtime command, etc.)
  * - {@link NamedInput} — ordered list of input definitions, referenced by name
  * - {@link TargetDependency} — dependency on another target, optionally cross-project
  * - {@link ProjectNode} — one project node in the workspace graph
  * - {@link ProjectDependencyEdge} — directed dependency edge between projects
  * - {@link ProjectGraph} — graph container with project nodes and edges
+ *
+ * ### Graph
+ * - {@link buildProjectGraph} — build a deterministic project graph from config data
  *
  * ### Loaders
  * - {@link loadWorkspaceConfig} — read, parse, and validate the root `deno.json`
@@ -76,6 +80,7 @@
  */
 export type {
   DepConstraint,
+  DependencyEdgeConfig,
   InputDefinition,
   NamedInput,
   ProjectConfig,
@@ -90,10 +95,16 @@ export type {
  */
 export type {
   ProjectDependencyEdge,
+  ProjectDependencyEdgeType,
   ProjectGraph,
   ProjectNode,
   ProjectNodeId,
 } from "./src/graph.ts";
+
+/**
+ * Builds a project graph from loaded project/workspace config.
+ */
+export { buildProjectGraph } from "./src/graph_builder.ts";
 
 // ---------------------------------------------------------------------------
 // Loaders

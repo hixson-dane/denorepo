@@ -13,8 +13,9 @@
  */
 
 import { parse as parseJsonc } from "jsr:@std/jsonc@^1";
-import type { WorkspaceConfig } from "./config.ts";
+import type { DependencyEdgeConfig, WorkspaceConfig } from "./config.ts";
 import { type ConfigDiagnostic, ConfigErrorCode } from "./errors.ts";
+import { validateWorkspaceConfig } from "./validate.ts";
 
 // ---------------------------------------------------------------------------
 // Result type
@@ -80,8 +81,10 @@ export interface LoadWorkspaceConfigOptions {
  * 3. Parses the content as JSONC (JSON with comments).
  * 4. Validates that the root value is a plain object containing a `"workspace"`
  *    array of strings; collects any structural violations as diagnostics.
- * 5. Returns a normalized {@link WorkspaceConfig} whose `members` field
- *    corresponds to the `"workspace"` array in `deno.json`.
+ * 5. Normalizes supported fields into a {@link WorkspaceConfig} (`members`
+ *    and optional `dependencyEdges`).
+ * 6. Runs {@link validateWorkspaceConfig} on the normalized config and returns
+ *    any resulting diagnostics.
  *
  * @param workspaceRoot - Absolute path string or `file:` URL pointing to the
  *   directory that contains the root `deno.json`.
@@ -208,7 +211,19 @@ export async function loadWorkspaceConfig(
   // ── Step 5: Normalize to WorkspaceConfig ───────────────────────────────────
   const config: WorkspaceConfig = {
     members: workspace as string[],
+    ...(obj["dependencyEdges"] !== undefined && {
+      dependencyEdges: obj["dependencyEdges"] as readonly DependencyEdgeConfig[],
+    }),
   };
+
+  const validation = validateWorkspaceConfig(config);
+  if (!validation.ok) {
+    const diagnostics = validation.diagnostics.map((d) => ({
+      ...d,
+      file: configPath,
+    })) as [ConfigDiagnostic, ...ConfigDiagnostic[]];
+    return { ok: false, diagnostics };
+  }
 
   return { ok: true, config };
 }

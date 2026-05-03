@@ -15,6 +15,15 @@
 export type ProjectNodeId = string;
 
 /**
+ * Classification of a dependency edge.
+ *
+ * - `"explicit"` — declared directly in config via project `explicitDependencies`
+ *   or workspace `dependencyEdges`.
+ * - `"implicit"` — declared via `implicitDependencies`.
+ */
+export type ProjectDependencyEdgeType = "explicit" | "implicit";
+
+/**
  * A project node in the workspace graph.
  */
 export interface ProjectNode {
@@ -49,6 +58,11 @@ export interface ProjectDependencyEdge {
    * Dependency project node ID.
    */
   readonly target: ProjectNodeId;
+
+  /**
+   * How this dependency edge was declared.
+   */
+  readonly type: ProjectDependencyEdgeType;
 }
 
 /**

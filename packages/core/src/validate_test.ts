@@ -18,6 +18,7 @@ Deno.test("validateWorkspaceConfig — valid minimal config", () => {
 Deno.test("validateWorkspaceConfig — valid full config", () => {
   const result = validateWorkspaceConfig({
     members: ["packages/core", "packages/cli"],
+    dependencyEdges: [{ source: "@denorepo/cli", target: "@denorepo/core" }],
     namedInputs: {
       default: [{ fileset: "**/*.ts" }, { env: "NODE_ENV" }],
     },
@@ -26,6 +27,22 @@ Deno.test("validateWorkspaceConfig — valid full config", () => {
     },
   });
   assertEquals(result.ok, true);
+});
+
+Deno.test("validateWorkspaceConfig — dependencyEdges entry with invalid source/target", () => {
+  const result = validateWorkspaceConfig({
+    members: [],
+    dependencyEdges: [{ source: 123, target: null }],
+  });
+  assertEquals(result.ok, false);
+  assertEquals(
+    result.diagnostics.some((d) => d.path === "dependencyEdges[0].source"),
+    true,
+  );
+  assertEquals(
+    result.diagnostics.some((d) => d.path === "dependencyEdges[0].target"),
+    true,
+  );
 });
 
 Deno.test("validateWorkspaceConfig — empty members array is valid", () => {
@@ -444,6 +461,19 @@ Deno.test("validateProjectConfig — implicitDependencies contains non-string", 
   );
 });
 
+Deno.test("validateProjectConfig — explicitDependencies contains non-string", () => {
+  const result = validateProjectConfig({
+    name: "@denorepo/core",
+    root: "packages/core",
+    explicitDependencies: [null],
+  });
+  assertEquals(result.ok, false);
+  assertEquals(
+    result.diagnostics.some((d) => d.path === "explicitDependencies"),
+    true,
+  );
+});
+
 Deno.test("validateProjectConfig — namedInputs entry invalid", () => {
   const result = validateProjectConfig({
     name: "@denorepo/core",
@@ -465,6 +495,7 @@ Deno.test("validateProjectConfig — optional undefined fields are ignored", () 
     tags: undefined,
     targets: undefined,
     implicitDependencies: undefined,
+    explicitDependencies: undefined,
     namedInputs: undefined,
   });
   assertEquals(result.ok, true);
@@ -764,6 +795,55 @@ Deno.test("validateArchitectureDependencies — violation: core depends on cli",
     result.diagnostics[0].path,
     "@denorepo/core.implicitDependencies",
   );
+});
+
+Deno.test("validateArchitectureDependencies — violation: explicit dependency is enforced", () => {
+  const result = validateArchitectureDependencies(
+    [{ sourceTag: "scope:core", notDependOnLibsWithTags: ["scope:cli"] }],
+    [
+      {
+        name: "@denorepo/core",
+        root: "packages/core",
+        tags: ["scope:core"],
+        explicitDependencies: ["@denorepo/cli"],
+      },
+      {
+        name: "@denorepo/cli",
+        root: "packages/cli",
+        tags: ["scope:cli"],
+      },
+    ],
+  );
+  assertEquals(result.ok, false);
+  assertEquals(result.diagnostics.length, 1);
+  assertEquals(result.diagnostics[0].code, "CONFIG_FORBIDDEN_DEPENDENCY");
+  assertEquals(
+    result.diagnostics[0].path,
+    "@denorepo/core.explicitDependencies",
+  );
+});
+
+Deno.test("validateArchitectureDependencies — violation: workspace dependency edge is enforced", () => {
+  const result = validateArchitectureDependencies(
+    [{ sourceTag: "scope:core", notDependOnLibsWithTags: ["scope:cli"] }],
+    [
+      {
+        name: "@denorepo/core",
+        root: "packages/core",
+        tags: ["scope:core"],
+      },
+      {
+        name: "@denorepo/cli",
+        root: "packages/cli",
+        tags: ["scope:cli"],
+      },
+    ],
+    [{ source: "@denorepo/core", target: "@denorepo/cli" }],
+  );
+  assertEquals(result.ok, false);
+  assertEquals(result.diagnostics.length, 1);
+  assertEquals(result.diagnostics[0].code, "CONFIG_FORBIDDEN_DEPENDENCY");
+  assertEquals(result.diagnostics[0].path, "dependencyEdges[0]");
 });
 
 Deno.test("validateArchitectureDependencies — violation: remote-cache depends on cli", () => {

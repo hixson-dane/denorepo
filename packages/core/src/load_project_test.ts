@@ -127,6 +127,7 @@ Deno.test("loadProjectConfigs — normalizes optional fields", async () => {
         version: "1.2.3",
         tags: ["scope:core", "type:library"],
         implicitDependencies: ["@denorepo/plugin-sdk"],
+        explicitDependencies: ["@denorepo/cli"],
       }),
     }),
   });
@@ -138,6 +139,7 @@ Deno.test("loadProjectConfigs — normalizes optional fields", async () => {
     assertEquals(cfg.version, "1.2.3");
     assertEquals([...cfg.tags!], ["scope:core", "type:library"]);
     assertEquals([...cfg.implicitDependencies!], ["@denorepo/plugin-sdk"]);
+    assertEquals([...cfg.explicitDependencies!], ["@denorepo/cli"]);
   }
 });
 
