@@ -15,7 +15,7 @@
 export type ProjectNodeId = string;
 
 /**
- * Classification of a dependency edge's source.
+ * Classification of a dependency edge.
  *
  * - `"explicit"` — declared directly in config via project `explicitDependencies`
  *   or workspace `dependencyEdges`.
