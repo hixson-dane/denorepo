@@ -797,6 +797,55 @@ Deno.test("validateArchitectureDependencies — violation: core depends on cli",
   );
 });
 
+Deno.test("validateArchitectureDependencies — violation: explicit dependency is enforced", () => {
+  const result = validateArchitectureDependencies(
+    [{ sourceTag: "scope:core", notDependOnLibsWithTags: ["scope:cli"] }],
+    [
+      {
+        name: "@denorepo/core",
+        root: "packages/core",
+        tags: ["scope:core"],
+        explicitDependencies: ["@denorepo/cli"],
+      },
+      {
+        name: "@denorepo/cli",
+        root: "packages/cli",
+        tags: ["scope:cli"],
+      },
+    ],
+  );
+  assertEquals(result.ok, false);
+  assertEquals(result.diagnostics.length, 1);
+  assertEquals(result.diagnostics[0].code, "CONFIG_FORBIDDEN_DEPENDENCY");
+  assertEquals(
+    result.diagnostics[0].path,
+    "@denorepo/core.explicitDependencies",
+  );
+});
+
+Deno.test("validateArchitectureDependencies — violation: workspace dependency edge is enforced", () => {
+  const result = validateArchitectureDependencies(
+    [{ sourceTag: "scope:core", notDependOnLibsWithTags: ["scope:cli"] }],
+    [
+      {
+        name: "@denorepo/core",
+        root: "packages/core",
+        tags: ["scope:core"],
+      },
+      {
+        name: "@denorepo/cli",
+        root: "packages/cli",
+        tags: ["scope:cli"],
+      },
+    ],
+    [{ source: "@denorepo/core", target: "@denorepo/cli" }],
+  );
+  assertEquals(result.ok, false);
+  assertEquals(result.diagnostics.length, 1);
+  assertEquals(result.diagnostics[0].code, "CONFIG_FORBIDDEN_DEPENDENCY");
+  assertEquals(result.diagnostics[0].path, "dependencyEdges[0]");
+});
+
 Deno.test("validateArchitectureDependencies — violation: remote-cache depends on cli", () => {
   const result = validateArchitectureDependencies(
     [{ sourceTag: "scope:remote-cache", notDependOnLibsWithTags: ["scope:cli"] }],

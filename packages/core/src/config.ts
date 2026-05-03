@@ -293,9 +293,11 @@ export interface WorkspaceConfig {
    *
    * Each entry specifies rules for projects that carry a particular
    * {@link DepConstraint.sourceTag}. When {@link validateArchitectureDependencies}
-   * is called with the loaded project configs, any
-   * {@link ProjectConfig.implicitDependencies} that violate these rules are
-   * reported as {@link ConfigErrorCode.FORBIDDEN_DEPENDENCY} diagnostics.
+   * is called with the loaded project configs, any dependency declared via
+   * {@link ProjectConfig.implicitDependencies},
+   * {@link ProjectConfig.explicitDependencies}, or
+   * {@link WorkspaceConfig.dependencyEdges} that violates these rules is
+   * reported as a {@link ConfigErrorCode.FORBIDDEN_DEPENDENCY} diagnostic.
    *
    * @example
    * ```ts

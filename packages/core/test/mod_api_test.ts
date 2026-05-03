@@ -212,7 +212,11 @@ Deno.test("mod.ts: validateArchitectureDependencies is callable", () => {
     { name: "@scope/cli", root: "packages/cli", tags: ["scope:cli"] },
   ];
   const constraints: DepConstraint[] = [];
-  const result = validateArchitectureDependencies(constraints, projects);
+  const result = validateArchitectureDependencies(
+    constraints,
+    projects,
+    [{ source: "@scope/core", target: "@scope/cli" }],
+  );
   assertEquals(typeof result.ok, "boolean");
 });
 

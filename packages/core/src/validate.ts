@@ -9,6 +9,7 @@
  */
 
 import type {
+  DependencyEdgeConfig,
   DepConstraint,
   InputDefinition,
   NamedInput,
@@ -610,24 +611,28 @@ export function validateProjectConfig(raw: unknown): ValidationResult {
 /**
  * Validates architecture dependency rules across all loaded project configs.
  *
- * For each project, inspects its {@link ProjectConfig.implicitDependencies}
- * and checks every entry against the provided {@link DepConstraint} rules. A
- * constraint applies when the source project's {@link ProjectConfig.tags}
- * includes the constraint's {@link DepConstraint.sourceTag}.
+ * For each project, inspects its {@link ProjectConfig.implicitDependencies} and
+ * {@link ProjectConfig.explicitDependencies}, plus optional workspace-level
+ * {@link DependencyEdgeConfig} edges, then checks every dependency against the
+ * provided {@link DepConstraint} rules. A constraint applies when the source
+ * project's {@link ProjectConfig.tags} includes the constraint's
+ * {@link DepConstraint.sourceTag}.
  *
  * - If {@link DepConstraint.notDependOnLibsWithTags} is set, the dependency
  *   project must not carry any of those tags.
  * - If {@link DepConstraint.onlyDependOnLibsWithTags} is set, the dependency
  *   project must carry at least one of those tags.
  *
- * Projects referenced in `implicitDependencies` but not present in the
- * `projects` array are silently skipped (their tags are unknown; import-graph
- * analysis is out of scope for this metadata-only check).
+ * Projects referenced in dependency lists but not present in the `projects`
+ * array are silently skipped (their tags are unknown; import-graph analysis is
+ * out of scope for this metadata-only check).
  *
  * @param constraints - The constraint rules to enforce, typically sourced from
  *   {@link WorkspaceConfig.constraints}.
  * @param projects - The full set of loaded {@link ProjectConfig} values for
  *   the workspace.
+ * @param workspaceDependencyEdges - Optional workspace-level dependency edges
+ *   (typically from {@link WorkspaceConfig.dependencyEdges}).
  * @returns A {@link ValidationResult} — `ok: true` when no violations are
  *   found, otherwise `ok: false` with one diagnostic per violation.
  *
@@ -647,6 +652,7 @@ export function validateProjectConfig(raw: unknown): ValidationResult {
 export function validateArchitectureDependencies(
   constraints: readonly DepConstraint[],
   projects: readonly ProjectConfig[],
+  workspaceDependencyEdges: readonly DependencyEdgeConfig[] = [],
 ): ValidationResult {
   if (constraints.length === 0) {
     return { ok: true, diagnostics: [] };
@@ -677,49 +683,81 @@ export function validateArchitectureDependencies(
       : null,
   }));
 
-  for (const project of projects) {
-    const sourceTags = project.tags ?? [];
-    const deps = project.implicitDependencies ?? [];
-    if (deps.length === 0) continue;
+  function validateDependency(
+    sourceName: string,
+    sourceTags: readonly string[],
+    depName: string,
+    diagnosticPath: string,
+  ): void {
+    // Skip dependencies whose tags are unknown (project not loaded yet).
+    if (!projectTagMap.has(depName)) return;
+    const depTags = projectTagMap.get(depName)!;
 
-    for (const depName of deps) {
-      // Skip dependencies whose tags are unknown (project not loaded yet).
-      if (!projectTagMap.has(depName)) continue;
-      const depTags = projectTagMap.get(depName)!;
+    for (const { constraint, forbiddenTagSet, allowedTagSet } of prepared) {
+      if (!sourceTags.includes(constraint.sourceTag)) continue;
 
-      for (const { constraint, forbiddenTagSet, allowedTagSet } of prepared) {
-        if (!sourceTags.includes(constraint.sourceTag)) continue;
-
-        // notDependOnLibsWithTags — fail if dep has ANY forbidden tag.
-        if (forbiddenTagSet !== null) {
-          const violatedTag = depTags.find((t) => forbiddenTagSet.has(t));
-          if (violatedTag !== undefined) {
-            diags.push({
-              code: ConfigErrorCode.FORBIDDEN_DEPENDENCY,
-              path: `${project.name}.implicitDependencies`,
-              message:
-                `Project "${project.name}" (tagged "${constraint.sourceTag}") must not depend on "${depName}" (tagged "${violatedTag}"). ` +
-                `Forbidden tags: [${constraint.notDependOnLibsWithTags!.join(", ")}].`,
-            });
-          }
+      // notDependOnLibsWithTags — fail if dep has ANY forbidden tag.
+      if (forbiddenTagSet !== null) {
+        const violatedTag = depTags.find((t) => forbiddenTagSet.has(t));
+        if (violatedTag !== undefined) {
+          diags.push({
+            code: ConfigErrorCode.FORBIDDEN_DEPENDENCY,
+            path: diagnosticPath,
+            message:
+              `Project "${sourceName}" (tagged "${constraint.sourceTag}") must not depend on "${depName}" (tagged "${violatedTag}"). ` +
+              `Forbidden tags: [${constraint.notDependOnLibsWithTags!.join(", ")}].`,
+          });
         }
+      }
 
-        // onlyDependOnLibsWithTags — fail if dep has NONE of the allowed tags.
-        if (allowedTagSet !== null) {
-          const hasAllowedTag = depTags.some((t) => allowedTagSet.has(t));
-          if (!hasAllowedTag) {
-            diags.push({
-              code: ConfigErrorCode.FORBIDDEN_DEPENDENCY,
-              path: `${project.name}.implicitDependencies`,
-              message:
-                `Project "${project.name}" (tagged "${constraint.sourceTag}") may only depend on projects tagged [${
-                  constraint.onlyDependOnLibsWithTags!.join(", ")
-                }]; "${depName}" has none of those tags.`,
-            });
-          }
+      // onlyDependOnLibsWithTags — fail if dep has NONE of the allowed tags.
+      if (allowedTagSet !== null) {
+        const hasAllowedTag = depTags.some((t) => allowedTagSet.has(t));
+        if (!hasAllowedTag) {
+          diags.push({
+            code: ConfigErrorCode.FORBIDDEN_DEPENDENCY,
+            path: diagnosticPath,
+            message:
+              `Project "${sourceName}" (tagged "${constraint.sourceTag}") may only depend on projects tagged [${
+                constraint.onlyDependOnLibsWithTags!.join(", ")
+              }]; "${depName}" has none of those tags.`,
+          });
         }
       }
     }
+  }
+
+  for (const project of projects) {
+    const sourceTags = project.tags ?? [];
+    for (const depName of project.implicitDependencies ?? []) {
+      validateDependency(
+        project.name,
+        sourceTags,
+        depName,
+        `${project.name}.implicitDependencies`,
+      );
+    }
+    for (const depName of project.explicitDependencies ?? []) {
+      validateDependency(
+        project.name,
+        sourceTags,
+        depName,
+        `${project.name}.explicitDependencies`,
+      );
+    }
+  }
+
+  for (let i = 0; i < workspaceDependencyEdges.length; i++) {
+    const edge = workspaceDependencyEdges[i];
+    // Skip unknown source project (tags unavailable).
+    if (!projectTagMap.has(edge.source)) continue;
+    const sourceTags = projectTagMap.get(edge.source)!;
+    validateDependency(
+      edge.source,
+      sourceTags,
+      edge.target,
+      `dependencyEdges[${i}]`,
+    );
   }
 
   if (diags.length === 0) {

@@ -67,3 +67,33 @@ Deno.test("buildProjectGraph — consumes workspace dependencyEdges and de-dupli
     },
   ]);
 });
+
+Deno.test("buildProjectGraph — de-duplication handles names containing null characters", () => {
+  const graph = buildProjectGraph(
+    [
+      {
+        name: "a\u0000b",
+        root: "packages/a",
+        explicitDependencies: ["c"],
+      },
+      {
+        name: "a",
+        root: "packages/a2",
+        explicitDependencies: ["b\u0000c"],
+      },
+      { name: "c", root: "packages/c" },
+      { name: "b\u0000c", root: "packages/bc" },
+    ],
+    {
+      dependencyEdges: [
+        { source: "a\u0000b", target: "c" },
+        { source: "a", target: "b\u0000c" },
+      ],
+    },
+  );
+
+  assertEquals(graph.edges, [
+    { source: "a", target: "b\u0000c", type: "explicit" },
+    { source: "a\u0000b", target: "c", type: "explicit" },
+  ]);
+});
