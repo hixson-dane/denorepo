@@ -47,6 +47,9 @@
  * - {@link ProjectDependencyEdge} — directed dependency edge between projects
  * - {@link ProjectGraph} — graph container with project nodes and edges
  *
+ * ### Graph
+ * - {@link buildProjectGraph} — build a deterministic project graph from config data
+ *
  * ### Loaders
  * - {@link loadWorkspaceConfig} — read, parse, and validate the root `deno.json`
  * - {@link loadProjectConfigs} — load and validate all workspace member `deno.json` files
